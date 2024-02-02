@@ -8,14 +8,16 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
 
+    #read + parse prot information
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
     chem_shift_to_id, id_to_mol = parser.parse_prot(prot_content)
 
-
+    #read + parse peaks information
     with open(args.peaks_file, "r") as stream : 
         peaks_content = stream.read()
 
+    #store known NOE measurements with the associated atoms
     p_assign = parser.parse_peaks(peaks_content, chem_shift_to_id, id_to_mol)
     print(str(p_assign).replace(",", "\n"))
 
