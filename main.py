@@ -8,12 +8,9 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
 
-    #TODO : call parser routines to get usable values
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
     chem_shift_to_id, id_to_mol = parser.parse_prot(prot_content)
-    print(chem_shift_to_id)
-    print(id_to_mol)
 
 
     with open(args.peaks_file, "r") as stream : 

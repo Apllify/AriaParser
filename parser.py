@@ -97,8 +97,14 @@ def id_from_shift(chem_shift : float, chem_shift_to_id : ChemShiftToID) -> int :
 
 
 def parse_peaks(content : str, chem_shift_to_id : ChemShiftToID, id_to_mol : IDToMol) -> TripletAssignment:
+    """
+    Uses the prot information to read the peaks file 
+    and transform each triplet of chem shifts into their 
+    respective atom IDs and stores the NOE measure for each.
+    """
+    
     lines = content.split("\n")
-#Assignmnet of rho to corresponding atoms follows scheme detailed in README.txt
+    #Assignmnet of rho to corresponding atoms follows scheme detailed in README.txt
     triplet_assignment : TripletAssignment = []
 
     for line in lines : 
