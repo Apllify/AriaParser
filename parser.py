@@ -7,6 +7,7 @@ ChemShiftToID = dict[tuple[float, float], int]
 IDToMol = dict[int, str]
 
 Mol = str | int # either ID or name
+PairAssignment = dict[ tuple[Mol, Mol], float ]
 TripletAssignment = list[ tuple[ Mol, Mol, Mol, float ] ]
 
 
@@ -148,3 +149,30 @@ def parse_peaks(content : str, chem_shift_to_id : ChemShiftToID, id_to_mol : IDT
         triplet_assignment.append( (Np, Nq, Nr, noe) )
 
     return triplet_assignment
+
+def parse_par(content : str) -> PairAssignment: 
+    """
+    Parses the content of the .par file
+    into a list of distances
+    """
+
+    pair_assignment : PairAssignment = dict()
+
+    for line in content : 
+
+        line = line.lower()
+        terms = line.split()
+
+        if terms[0] == "bond":
+            try : 
+                m1, m2 = terms[1], terms[2]
+                dist = float(terms[6])
+            except : 
+                continue
+
+            pair_assignment[(m1, m2)] = dist
+
+    return pair_assignment
+
+
+
