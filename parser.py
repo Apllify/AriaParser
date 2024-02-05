@@ -1,12 +1,12 @@
 import math
 from collections import OrderedDict
 
-
 #Type defs
-ChemShiftToID = dict[tuple[float, float], int]
-IDToMol = dict[int, str]
+Mol = str #  ID of the form MOLTYPE_RESNUM
 
-Mol = str | int # either ID or name
+ChemShiftToMol = dict[tuple[float, float], Mol]
+MolSet = set[Mol]
+
 PairAssignment = dict[ tuple[Mol, Mol], float ]
 TripletAssignment = list[ tuple[ Mol, Mol, Mol, float ] ]
 
@@ -16,15 +16,15 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str) -> tuple[ChemShiftToID, IDToMol]:
+def parse_prot(content : str) -> tuple[ChemShiftToMol, MolSet]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
     a protein id 
     """
 
-    chem_shift_to_id = dict()
-    id_to_mol = dict()
+    chem_shift_to_mol = dict()
+    mol_set = set()
 
     lines = content.split("\n")
 
@@ -49,28 +49,28 @@ def parse_prot(content : str) -> tuple[ChemShiftToID, IDToMol]:
 
         #remember this molecule's name and ID for later
         mol_name =  f"{mol_type}_{res_id}"
-        id_to_mol[id] = mol_name
+        mol_set.add(mol_name)
 
         #also store the chem shift of molecule if it is well defined
         if chem_shift != 999 : 
-            chem_shift_to_id[(chem_shift - err, chem_shift + err)] = id
+            chem_shift_to_mol[(chem_shift - err, chem_shift + err)] = mol_name
 
         
-    return (chem_shift_to_id, id_to_mol)
+    return (chem_shift_to_mol, mol_set)
 
         
 
 
-def id_from_shift(chem_shift : float, chem_shift_to_id : ChemShiftToID) -> int : 
+def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToMol) -> Mol : 
     """
     Determine the id of an atom from its chemical shift
     using the value intervals established from the prot file 
 
-    Returns -1 when no valid id is found
+    Returns the empty string when no valid mol is found
     """
     global lookup_cache
 
-    cur_min_id = -1
+    cur_min_name = ""
     cur_min =  math.inf
 
     #check if we already computed this recently
@@ -79,25 +79,25 @@ def id_from_shift(chem_shift : float, chem_shift_to_id : ChemShiftToID) -> int :
         return lookup_cache[chem_shift]
 
     #iterate through all intervals
-    for (lb, ub) in chem_shift_to_id.keys():
+    for (lb, ub) in chem_shift_to_mol.keys():
         if chem_shift >= lb and chem_shift <= ub: 
 
             dist = abs(chem_shift - (ub+lb)/2)
             if  dist < cur_min:
-                cur_min_id = chem_shift_to_id[(lb, ub)]
+                cur_min_name = chem_shift_to_mol[(lb, ub)]
                 cur_min = dist
 
     #store result and return
     if len(lookup_cache) >= CACHE_SIZE:
         lookup_cache.popitem(last=False)
 
-    lookup_cache[chem_shift] = cur_min_id
+    lookup_cache[chem_shift] = cur_min_name
     
-    return cur_min_id
+    return cur_min_name
 
 
 
-def parse_peaks(content : str, chem_shift_to_id : ChemShiftToID, id_to_mol : IDToMol) -> TripletAssignment:
+def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToMol) -> TripletAssignment:
     """
     Uses the prot information to read the peaks file 
     and transform each triplet of chem shifts into their 
@@ -133,22 +133,19 @@ def parse_peaks(content : str, chem_shift_to_id : ChemShiftToID, id_to_mol : IDT
             continue 
         
         #find the atom IDs from their chem shifts
-        Ip = id_from_shift(chem1, chem_shift_to_id)
-        Iq = id_from_shift(chem2, chem_shift_to_id)
-        Ir = id_from_shift(chem3, chem_shift_to_id)
+        Ip = mol_from_shift(chem1, chem_shift_to_mol)
+        Iq = mol_from_shift(chem2, chem_shift_to_mol)
+        Ir = mol_from_shift(chem3, chem_shift_to_mol)
         
         if -1 in (Ip, Iq, Ir):
             continue
 
-        #convert the ids to names
-        Np = id_to_mol.get(Ip)
-        Nq = id_to_mol.get(Iq)
-        Nr = id_to_mol.get(Ir)
-
         #store the result
-        triplet_assignment.append( (Np, Nq, Nr, noe) )
+        triplet_assignment.append( (Ip, Iq, Ir, noe) )
 
     return triplet_assignment
+
+
 
 def parse_par(content : str) -> PairAssignment: 
     """
@@ -160,17 +157,41 @@ def parse_par(content : str) -> PairAssignment:
 
     for line in content : 
 
+        #file is case insensitive
         line = line.lower()
         terms = line.split()
 
-        if terms[0] == "bond":
-            try : 
-                m1, m2 = terms[1], terms[2]
-                dist = float(terms[6])
-            except : 
-                continue
+        opcode = terms[0]
 
-            pair_assignment[(m1, m2)] = dist
+        match opcode :  
+
+            case "bond":
+                #store the length of the given bond
+                try : 
+                    m1, m2 = terms[1], terms[2]
+                    dist = float(terms[6])
+                except : 
+                    continue
+
+                pair_assignment[(m1, m2)] = dist
+
+            case "angle" : 
+                #retrieve angle data
+                try : 
+                    m1, m2, m3 = terms[1], terms[2], terms[3]
+                    angle = float(terms[7])
+                except : 
+                    continue
+
+                #get the two lengths of the triangle (we check both orders)
+                d1 = pair_assignment.get((m1, m2)) or pair_assignment.get((m2, m1))
+                d2 = pair_assignment.get((m1, m3)) or pair_assignment.get((m3, m1))
+                if d1 == None or d2 == None : 
+                    continue
+
+                #compute and store the 3rd length
+                dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
+                pair_assignment[(m2, m3)] = dist
 
     return pair_assignment
 
