@@ -1,0 +1,20 @@
+set ATOMS = A B C D; #set of given atoms
+set COVDISTS := (A , *) B  C
+                (B, * ) C; 
+
+set DISTS := A D
+             B D
+             C D;
+
+param CovDists := [A , *] B 1 C 1
+                [B, * ] C 1; #index set distances given from covalent bonds + angles
+
+set RHOS := A D B
+            B D B
+            C D A;
+
+param rho := A D B 2
+            B D B 2
+            C D A 2;
+
+

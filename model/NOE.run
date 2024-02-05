@@ -1,0 +1,7 @@
+model model/NOE.mod;
+data model/NOE_test.dat;
+option solver baron;
+solve;
+display x;
+display d2, sm, sp;
+display ERROR;
