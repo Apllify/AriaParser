@@ -14,14 +14,14 @@ if __name__ == "__main__":
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
-    chem_shift_to_mol, mol_set = aria_parser.parse_prot(prot_content)
+    chem_shift_to_atom, atom_set = aria_parser.parse_prot(prot_content)
 
     #PEAKS PARSE
     with open(args.peaks_file, "r") as stream : 
         peaks_content = stream.read()
 
     #store NOE measurements with the associated atoms
-    noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_mol)
+    noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_atom)
 
 
     #PAR PARSE
@@ -29,10 +29,14 @@ if __name__ == "__main__":
         par_content = stream.read()
 
     d1_assign, d2_assign = aria_parser.parse_par(par_content)
-    pprint(d1_assign)
-    pprint(d2_assign)
+    # pprint(d1_assign)
+    # pprint(d2_assign)
 
-    aria_parser.write_data(mol_set, noe_assign, "test_file.txt")
+    spec_dists = aria_parser.compute_dists(atom_set, dict())
+    pprint(spec_dists)
+
+    #write out our results
+    aria_parser.write_data(atom_set, noe_assign, "test_file.txt")
 
 
 

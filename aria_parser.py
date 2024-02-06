@@ -140,7 +140,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         Iq = atom_from_shift(chem2, chem_shift_to_atom)
         Ir = atom_from_shift(chem3, chem_shift_to_atom)
         
-        if -1 in (Ip, Iq, Ir):
+        if "" in (Ip, Iq, Ir):
             continue
 
         #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
@@ -225,7 +225,32 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
     distances applicable to our atoms set
     """
     
-    pass
+    #for now only use some hardcoded generic dists
+    backbone_dists = {
+        ("n", "hn") : 0.980,
+        ("nh1", "h") : 0.980,
+        ("n", "ca") : 1.458,
+        ("nh1", "ce") : 1.458,
+        ("ca", "ha") : 1.080,
+        ("he1", "ha") : 1.080,
+        ("ca", "cb") : 1.525,
+        ("he1", "c") : 1.525
+    }
+
+    atom_dists : PairAssignment = dict()
+
+    for res_id, residue in atoms.items():
+        for (a1, a2) in backbone_dists.keys():
+            #check for each known distance pair if it is in this residue
+            a1_spec = f"{a1}_{res_id}"
+            a2_spec = f"{a2}_{res_id}"
+
+            if a1_spec in residue and a2_spec in residue: 
+                atom_dists[(a1_spec, a2_spec)] = backbone_dists[(a1, a2)]
+            
+    return atom_dists
+
+    
 
 
 
