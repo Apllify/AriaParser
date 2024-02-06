@@ -150,13 +150,18 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
 
 
 
-def parse_par(content : str) -> PairAssignment: 
+def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]: 
     """
     Parses the content of the .par file
     into a list of generic distances between atom types
+
+    Returns a tuple where elem 1 is the assignment obtained from 
+    bond statements, while elem2 is the assignment obtained
+    from angle statements.
     """
 
-    pair_assignment : PairAssignment = dict()
+    bond_assignment : PairAssignment = dict()
+    angle_assignment : PairAssignment = dict()
 
     for line in content.split("\n") : 
 
@@ -177,7 +182,8 @@ def parse_par(content : str) -> PairAssignment:
                 except : 
                     continue
 
-                pair_assignment[(m1, m2)] = dist
+                
+                bond_assignment[(m1, m2)] = dist
 
             case "angle" : 
                 #retrieve angle data
@@ -188,16 +194,16 @@ def parse_par(content : str) -> PairAssignment:
                     continue
 
                 #get the two lengths of the triangle (we check both orders)
-                d1 = pair_assignment.get((m1, m2)) or pair_assignment.get((m2, m1))
-                d2 = pair_assignment.get((m1, m3)) or pair_assignment.get((m3, m1))
+                d1 = bond_assignment.get((m1, m2)) or bond_assignment.get((m2, m1))
+                d2 = bond_assignment.get((m1, m3)) or bond_assignment.get((m3, m1))
                 if d1 == None or d2 == None : 
                     continue
 
                 #compute and store the 3rd length
                 dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
-                pair_assignment[(m2, m3)] = dist
+                angle_assignment[(m2, m3)] = dist
 
-    return pair_assignment
+    return (bond_assignment, angle_assignment)
 
 
 

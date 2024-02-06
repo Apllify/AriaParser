@@ -27,8 +27,9 @@ if __name__ == "__main__":
     with open(args.par_file, "r") as stream : 
         par_content = stream.read()
 
-    dist_assign = aria_parser.parse_par(par_content)
-    pprint(dist_assign)
+    d1_assign, d2_assign = aria_parser.parse_par(par_content)
+    pprint(d1_assign)
+    pprint(d2_assign)
 
 
 
