@@ -5,7 +5,7 @@ from collections import OrderedDict
 Atom = str #  ID of the form ATOMTYPE_RESNUM
 
 ChemShiftToAtom = dict[tuple[float, float], Atom]
-AtomSet = set[Atom]
+AtomSet = dict[int, set[Atom]] #atoms by residue
 
 PairAssignment = dict[ tuple[Atom, Atom], float ]
 TripletAssignment = list[ tuple[ Atom, Atom, Atom, float ] ]
@@ -24,7 +24,7 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
     """
 
     chem_shift_to_atom = dict()
-    atom_set = set()
+    atom_set = dict()
 
     lines = content.split("\n")
 
@@ -48,8 +48,11 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
             continue
 
         #remember this atom's name and ID for later
-        atom_name =  f"{atom_type}_{res_id}"
-        atom_set.add(atom_name)
+        atom_name =  f"{atom_type.lower()}_{res_id}"
+        if atom_set.get(res_id) : 
+            atom_set[res_id].add(atom_name)
+        else : 
+            atom_set[res_id] = {atom_name}
 
         #also store the chem shift of atom if it is well defined
         if chem_shift != 999 : 
@@ -150,21 +153,22 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
 def parse_par(content : str) -> PairAssignment: 
     """
     Parses the content of the .par file
-    into a list of distances
+    into a list of generic distances between atom types
     """
 
     pair_assignment : PairAssignment = dict()
 
-    for line in content : 
+    for line in content.split("\n") : 
 
         #file is case insensitive
         line = line.lower()
         terms = line.split()
 
+        if len(terms) == 0 : 
+            continue
+
         opcode = terms[0]
-
         match opcode :  
-
             case "bond":
                 #store the length of the given bond
                 try : 
@@ -197,13 +201,25 @@ def parse_par(content : str) -> PairAssignment:
 
 
 
+def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
+    """
+    Uses the generic covalent bond distances 
+    obtained from the .par file to find all the
+    distances applicable to our atoms set
+    """
+    
+    pass
+
+
 
 def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
         #define atoms set
         outfile.write("set ATOMS := ")
-        outfile.write(*atoms)
+        residues = atoms.items()
+        for residue in residues : 
+            outfile.write(*residue)
         outfile.write(";\n")
 
         #define covalent distances set

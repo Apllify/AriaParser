@@ -1,6 +1,8 @@
 import aria_parser
 import argparse
 
+from pprint import pprint # debugging
+
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser(description="A python tool for finding molecule conformations.")
     argparser.add_argument("prot_file", type = str, metavar = ".prot file")
@@ -18,9 +20,16 @@ if __name__ == "__main__":
     with open(args.peaks_file, "r") as stream : 
         peaks_content = stream.read()
 
-    #store known NOE measurements with the associated atoms
-    p_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_mol)
-    print(str(p_assign).replace(",", "\n"))
+    #store NOE measurements with the associated atoms
+    noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_mol)
+
+    #PAR PARSE
+    with open(args.par_file, "r") as stream : 
+        par_content = stream.read()
+
+    dist_assign = aria_parser.parse_par(par_content)
+    pprint(dist_assign)
+
 
 
 
