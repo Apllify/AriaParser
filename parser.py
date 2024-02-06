@@ -23,8 +23,8 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
     a protein id 
     """
 
-    chem_shift_to_mol = dict()
-    mol_set = set()
+    chem_shift_to_atom = dict()
+    atom_set = set()
 
     lines = content.split("\n")
 
@@ -42,31 +42,31 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
             chem_shift = float(terms[1])
             err =  float(terms[2])
 
-            mol_type = terms[3]
+            atom_type = terms[3]
             res_id = int(terms[4])
         except : 
             continue
 
-        #remember this molecule's name and ID for later
-        mol_name =  f"{mol_type}_{res_id}"
-        mol_set.add(mol_name)
+        #remember this atom's name and ID for later
+        atom_name =  f"{atom_type}_{res_id}"
+        atom_set.add(atom_name)
 
-        #also store the chem shift of molecule if it is well defined
+        #also store the chem shift of atom if it is well defined
         if chem_shift != 999 : 
-            chem_shift_to_mol[(chem_shift - err, chem_shift + err)] = mol_name
+            chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
         
-    return (chem_shift_to_mol, mol_set)
+    return (chem_shift_to_atom, atom_set)
 
         
 
 
-def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToAtom) -> Atom : 
+def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> Atom : 
     """
     Determine the id of an atom from its chemical shift
     using the value intervals established from the prot file 
 
-    Returns the empty string when no valid mol is found
+    Returns the empty string when no valid atom is found
     """
     global lookup_cache
 
@@ -79,12 +79,12 @@ def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToAtom) -> A
         return lookup_cache[chem_shift]
 
     #iterate through all intervals
-    for (lb, ub) in chem_shift_to_mol.keys():
+    for (lb, ub) in chem_shift_to_atom.keys():
         if chem_shift >= lb and chem_shift <= ub: 
 
             dist = abs(chem_shift - (ub+lb)/2)
             if  dist < cur_min:
-                cur_min_name = chem_shift_to_mol[(lb, ub)]
+                cur_min_name = chem_shift_to_atom[(lb, ub)]
                 cur_min = dist
 
     #store result and return
@@ -97,7 +97,7 @@ def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToAtom) -> A
 
 
 
-def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToAtom) -> TripletAssignment:
+def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletAssignment:
     """
     Uses the prot information to read the peaks file 
     and transform each triplet of chem shifts into their 
@@ -119,7 +119,7 @@ def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToAtom) -> TripletAs
             id = int(terms[0])
             chem1, chem2, chem3 = map(float, terms[1:4]) #chem shifts
             noe = float(terms[6])
-            m1, m2, m3 = map(int, terms[10:13]) #molecules
+            m1, m2, m3 = map(int, terms[10:13]) #atoms
         except : 
             continue
 
@@ -127,15 +127,15 @@ def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToAtom) -> TripletAs
         if noe <= 0 : 
             continue
 
-        #ignore lines that don't have 3 unique molecules / have a zero mol
+        #ignore lines that don't have 3 unique atoms / have a zero atom
         uniques = set([chem1, chem2, chem3])
         if len(uniques) <= 2 or 0 in uniques : 
             continue 
         
         #find the atom IDs from their chem shifts
-        Ip = mol_from_shift(chem1, chem_shift_to_mol)
-        Iq = mol_from_shift(chem2, chem_shift_to_mol)
-        Ir = mol_from_shift(chem3, chem_shift_to_mol)
+        Ip = atom_from_shift(chem1, chem_shift_to_atom)
+        Iq = atom_from_shift(chem2, chem_shift_to_atom)
+        Ir = atom_from_shift(chem3, chem_shift_to_atom)
         
         if -1 in (Ip, Iq, Ir):
             continue
@@ -194,6 +194,9 @@ def parse_par(content : str) -> PairAssignment:
                 pair_assignment[(m2, m3)] = dist
 
     return pair_assignment
+
+
+
 
 def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat"):
 
