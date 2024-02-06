@@ -217,7 +217,7 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat
     with open(filename, "w") as outfile:
         #define atoms set
         outfile.write("set ATOMS := ")
-        residues = atoms.items()
+        residues = atoms.values()
         for residue in residues : 
             outfile.write(*residue)
         outfile.write(";\n")
