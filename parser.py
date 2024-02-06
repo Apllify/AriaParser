@@ -2,13 +2,13 @@ import math
 from collections import OrderedDict
 
 #Type defs
-Mol = str #  ID of the form MOLTYPE_RESNUM
+Atom = str #  ID of the form ATOMTYPE_RESNUM
 
-ChemShiftToMol = dict[tuple[float, float], Mol]
-MolSet = set[Mol]
+ChemShiftToAtom = dict[tuple[float, float], Atom]
+AtomSet = set[Atom]
 
-PairAssignment = dict[ tuple[Mol, Mol], float ]
-TripletAssignment = list[ tuple[ Mol, Mol, Mol, float ] ]
+PairAssignment = dict[ tuple[Atom, Atom], float ]
+TripletAssignment = list[ tuple[ Atom, Atom, Atom, float ] ]
 
 
 #GLOBAL DO NOT TOUCH
@@ -16,7 +16,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str) -> tuple[ChemShiftToMol, MolSet]:
+def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -61,7 +61,7 @@ def parse_prot(content : str) -> tuple[ChemShiftToMol, MolSet]:
         
 
 
-def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToMol) -> Mol : 
+def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToAtom) -> Atom : 
     """
     Determine the id of an atom from its chemical shift
     using the value intervals established from the prot file 
@@ -97,7 +97,7 @@ def mol_from_shift(chem_shift : float, chem_shift_to_mol : ChemShiftToMol) -> Mo
 
 
 
-def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToMol) -> TripletAssignment:
+def parse_peaks(content : str, chem_shift_to_mol : ChemShiftToAtom) -> TripletAssignment:
     """
     Uses the prot information to read the peaks file 
     and transform each triplet of chem shifts into their 
@@ -194,6 +194,38 @@ def parse_par(content : str) -> PairAssignment:
                 pair_assignment[(m2, m3)] = dist
 
     return pair_assignment
+
+def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat"):
+
+    with open(filename, "w") as outfile:
+        #define atoms set
+        outfile.write("set ATOMS := ")
+        outfile.write(*atoms)
+        outfile.write(";\n")
+
+        #define covalent distances set
+        outfile.write("set COVDISTS := ;")
+
+        #define distance set
+        outfile.write("set DISTS := ")
+        for a1, a2, _, _ in rhos: outfile.write(f'{a1} {a2}')
+        outfile.write(";\n")
+
+        #define RHOS set
+        outfile.write("set RHOS := ")
+        for a1, a2, a3, _ in rhos: outfile.write(f'{a1} {a2} {a3}')
+        outfile.write(";\n")
+
+        #give RHO data
+        outfile.write("param rho := ")
+        for a1, a2, a3, chemshift in rhos: outfile.write(f'{a1} {a2} {a3} {chemshift}')
+        outfile.write(";\n")
+
+
+
+
+            
+
 
 
 
