@@ -1,4 +1,4 @@
-import parser
+import aria_parser
 import argparse
 
 if __name__ == "__main__":
@@ -12,14 +12,14 @@ if __name__ == "__main__":
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
-    chem_shift_to_mol, mol_set = parser.parse_prot(prot_content)
+    chem_shift_to_mol, mol_set = aria_parser.parse_prot(prot_content)
 
     #PEAKS PARSE
     with open(args.peaks_file, "r") as stream : 
         peaks_content = stream.read()
 
     #store known NOE measurements with the associated atoms
-    p_assign = parser.parse_peaks(peaks_content, chem_shift_to_mol)
+    p_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_mol)
     print(str(p_assign).replace(",", "\n"))
 
 
