@@ -26,3 +26,6 @@ subject to NOE_lb {(p, q, r) in RHOS}:
         rho[p,q,r] - sm[p,q,r] <= 1 / d2[p,q]^3;
  subject to NOE_ub {(p, q, r) in RHOS}: 
         1 / d2[p,q]^3 <= rho[p,q,r] + sp[p,q,r];
+
+subject to Centroid {k in DIM}: 
+        sum{a in ATOMS} x[a, k] = 0;

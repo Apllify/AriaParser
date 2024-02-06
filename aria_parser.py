@@ -143,6 +143,17 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         if -1 in (Ip, Iq, Ir):
             continue
 
+        #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
+        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h" or a[0] == "q"]
+
+        if len(hydrogens) != 2:
+            continue
+
+        non_hydrogen = [a for a in ((Ip, Iq, Ir)) if a not in hydrogens]
+
+        #store the result
+        triplet_assignment.append( (hydrogens[0], hydrogens[1], non_hydrogen[0], noe) )
+
         #store the result
         triplet_assignment.append( (Ip, Iq, Ir, noe) )
 
@@ -225,7 +236,7 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat
         outfile.write("set ATOMS := ")
         residues = atoms.values()
         for residue in residues : 
-            outfile.write(*residue)
+            for a in residue: outfile.write(f' {a}')
         outfile.write(";\n")
 
         #define covalent distances set
@@ -233,17 +244,17 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat
 
         #define distance set
         outfile.write("set DISTS := ")
-        for a1, a2, _, _ in rhos: outfile.write(f'{a1} {a2}')
+        for a1, a2, _, _ in rhos: outfile.write(f' {a1} {a2}')
         outfile.write(";\n")
 
         #define RHOS set
         outfile.write("set RHOS := ")
-        for a1, a2, a3, _ in rhos: outfile.write(f'{a1} {a2} {a3}')
+        for a1, a2, a3, _ in rhos: outfile.write(f' {a1} {a2} {a3}')
         outfile.write(";\n")
 
         #give RHO data
         outfile.write("param rho := ")
-        for a1, a2, a3, chemshift in rhos: outfile.write(f'{a1} {a2} {a3} {chemshift}')
+        for a1, a2, a3, chemshift in rhos: outfile.write(f' {a1} {a2} {a3} {chemshift}')
         outfile.write(";\n")
 
 
