@@ -23,6 +23,7 @@ if __name__ == "__main__":
     #store NOE measurements with the associated atoms
     noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_mol)
 
+
     #PAR PARSE
     with open(args.par_file, "r") as stream : 
         par_content = stream.read()
