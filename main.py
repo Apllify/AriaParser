@@ -30,6 +30,8 @@ if __name__ == "__main__":
     dist_assign = aria_parser.parse_par(par_content)
     pprint(dist_assign)
 
+    aria_parser.write_data(mol_set, noe_assign, "test_file.txt")
+
 
 
 

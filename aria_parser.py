@@ -143,6 +143,17 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         if -1 in (Ip, Iq, Ir):
             continue
 
+        #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
+        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "H" or a[0] == "Q"]
+
+        if len(hydrogens) != 2:
+            continue
+
+        non_hydrogen = [a for a in ((Ip, Iq, Ir)) if a not in hydrogens]
+
+        #store the result
+        triplet_assignment.append( (hydrogens[0], hydrogens[1], non_hydrogen[0], noe) )
+
         #store the result
         triplet_assignment.append( (Ip, Iq, Ir, noe) )
 
