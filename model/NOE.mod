@@ -18,13 +18,12 @@ minimize ERROR:
     sum{(a1, a2) in COVDISTS} ((sum{k in DIM} (x[a1, k] - x[a2, k]))^2 - CovDists[a1, a2]^2)^2
     #correct assignment for distances given covalent bonds + angles
     + sum{(a1, a2) in DISTS} ((sum{k in DIM}(x[a1, k] - x[a2, k]))^2 - d2[a1, a2])^2
-    # + sum of slack varibles squared??
+     #correct assignment from NOE-data
     + sum{(p, q, r) in RHOS} (sm[p, q, r] + sp[p, q, r]);
-    #correct assignment from NOE-data
-
+   
 subject to NOE_lb {(p, q, r) in RHOS}: 
         rho[p,q,r] - sm[p,q,r] <= 1 / d2[p,q]^3;
- subject to NOE_ub {(p, q, r) in RHOS}: 
+subject to NOE_ub {(p, q, r) in RHOS}: 
         1 / d2[p,q]^3 <= rho[p,q,r] + sp[p,q,r];
 
 subject to Centroid {k in DIM}: 

@@ -151,16 +151,22 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
             continue
 
         #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
-        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h"]
+        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h" or a[0] == "q"]
 
         if len(hydrogens) != 2:
             continue
 
         non_hydrogen = [a for a in ((Ip, Iq, Ir)) if a not in hydrogens]
 
-        #store the result
-        triplet_assignment.append( (hydrogens[0], hydrogens[1], non_hydrogen[0], noe) )
-
+        (Ip, Iq, Ir) = (hydrogens[0], hydrogens[1], non_hydrogen[0])
+        atom_C, resnr_C = Ir.split("_")
+        k = len(atom_C)
+        for a in (Ip, Iq):
+            atom, resnr = a.split("_")
+            if resnr == resnr_C and atom_C[1:] == atom[1:k]:
+                if (Ip, Iq, Ir, noe) not in triplet_assignment: triplet_assignment.append( (Ip, Iq, Ir, noe))
+                break
+        
         #store the result
         #triplet_assignment.append( (Ip, Iq, Ir, noe) )
 
@@ -196,18 +202,16 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 #store the length of the given bond
                 try : 
                     m1, m2 = terms[1], terms[2]
-                    dist = float(terms[6])
+                    dist = float(terms[4])
                 except : 
                     continue
-
-                
                 bond_assignment[(m1, m2)] = dist
 
             case "angle" : 
                 #retrieve angle data
                 try : 
                     m1, m2, m3 = terms[1], terms[2], terms[3]
-                    angle = float(terms[7])
+                    angle = float(terms[5])
                 except : 
                     continue
 
@@ -220,11 +224,54 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 #compute and store the 3rd length
                 dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
                 angle_assignment[(m2, m3)] = dist
-
     return (bond_assignment, angle_assignment)
 
+def parse_top(content: str, bond_lenghts: PairAssignment):
+    """Parses the top file and finds the sequence + bond information for each amino acid"""
+    seq_to_AA = dict()
+    AA_name = ""
+    seq = ""
+    name_to_type = dict()
+    bonds = []
 
+    for line in content.split('\n'):
+        line = line.lower()
+        terms = line.split()
+        if len(terms) == 0:
+            continue
 
+        opcode = terms[0]
+
+        match opcode:
+            case "residue":
+                AA_name = terms[1]
+            
+            case "atom":
+                name, type= terms[1], terms[2]
+                seq += name
+                name_to_type[name] = type[5:]
+            
+            case "bond":
+                n = len(terms)
+                for i in range(0, n, 3):
+                    if terms[i] == "!bond": continue
+                    a1, a2 = terms[i+1], terms[i+2]
+                    bond = (name_to_type[a1], name_to_type[a2])
+                    bond = tuple(sorted(bond))
+                    lenght = bond_lenghts[bond]
+                    bonds.append((a1, a2, lenght))
+
+            case "end":
+                seq_to_AA[seq] = (AA_name, bonds)
+                bonds = []
+                name_to_type = dict()
+                seq = ""
+                AA_name = ""
+            case _:
+                pass
+    return seq_to_AA
+
+                
 def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
     """
     Uses the generic covalent bond distances 

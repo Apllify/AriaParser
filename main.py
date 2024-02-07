@@ -8,6 +8,7 @@ if __name__ == "__main__":
     argparser.add_argument("prot_file", type = str, metavar = ".prot file")
     argparser.add_argument("peaks_file", type = str, metavar = ".peaks file")
     argparser.add_argument("par_file", type = str, metavar = ".par file")
+    argparser.add_argument("top_file", type = str, metavar = ".top file")
 
     args = argparser.parse_args()
 
@@ -27,13 +28,20 @@ if __name__ == "__main__":
     #PAR PARSE
     with open(args.par_file, "r") as stream : 
         par_content = stream.read()
+    
+    #TOP parse
+    with open(args.top_file, "r") as stream:
+        top_content = stream.read()
 
     d1_assign, d2_assign = aria_parser.parse_par(par_content)
-    # pprint(d1_assign)
-    # pprint(d2_assign)
+    #pprint(d1_assign)
+    #pprint(d2_assign)
 
     cov_dists = aria_parser.compute_dists(atom_set, dict())
-    pprint(cov_dists)
+    ##pprint(cov_dists)
+
+    seq_to_AA = aria_parser.parse_top(top_content, d1_assign)
+    pprint(seq_to_AA)
 
     #write out our results
     aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.txt")
