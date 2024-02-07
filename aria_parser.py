@@ -192,6 +192,8 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
         #file is case insensitive
         line = line.lower()
         terms = line.split()
+        # remove terms of {sd=...} in aria.par
+        terms = list(filter(lambda term: ('{' not in term) and ('}' not in term), terms))
 
         if len(terms) == 0 : 
             continue
