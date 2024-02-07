@@ -32,11 +32,11 @@ if __name__ == "__main__":
     # pprint(d1_assign)
     # pprint(d2_assign)
 
-    spec_dists = aria_parser.compute_dists(atom_set, dict())
-    pprint(spec_dists)
+    cov_dists = aria_parser.compute_dists(atom_set, dict())
+    pprint(cov_dists)
 
     #write out our results
-    aria_parser.write_data(atom_set, noe_assign, "test_file.txt")
+    aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.txt")
 
 
 

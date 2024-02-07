@@ -1,0 +1,2 @@
+set ATOMS :=  hg2_10 o_10 hb2_10 hg3_10 n_10 hb3_10 ha_10 hn_10 hn_11 hb2_11 hg2_11 o_11 ha_11 n_11 n_12 hd22_12 qd2_12 ha_12 hb2_12 hn_12 hg_12 o_12 hb3_12 qd1_12 hb2_13 hn_13 hd22_13 hd21_13 ha_13 n_13 o_13 hb2_14 hd22_14 n_14 ha_14 hb3_14 hd21_14 hn_14 o_14 ha_15 n_15 qd2_15 hg_15 hb2_15 o_15 hb3_15 qd1_15 hn_15 ha_16 o_16 hg2_16 n_16 hn_16 hb2_16 ha_17 hb3_17 hg2_17 hn_17 o_17 hg3_17 hb2_17 n_17 n_18 hb_18 hn_18 ha_18 qg2_18 o_18 hd1_19 ha_19 hn_19 hd2_19 hb2_19 hb3_19 he1_19 o_19 n_19 hn_20 hb3_20 hg3_20 n_20 hb2_20 hg2_20 ha_20 o_20;
+set COVDISTS := 

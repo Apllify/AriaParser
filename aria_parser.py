@@ -27,6 +27,7 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
     atom_set = dict()
 
     lines = content.split("\n")
+    last_res_id = -1
 
     for line in lines : 
         terms = line.split()
@@ -57,6 +58,14 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
         #also store the chem shift of atom if it is well defined
         if chem_shift != 999 : 
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
+
+        #called once per residue, for adding some hardcoded atoms
+        if last_res_id != res_id : 
+
+            atom_set[res_id].add(f'o_{res_id}')
+
+
+            last_res_id = res_id
 
         
     return (chem_shift_to_atom, atom_set)
@@ -236,7 +245,6 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
 
     #systematically does not att C_id and O
     for res_id, residue in atoms.items():
-        atoms[res_id].add(f'o_{res_id}')
         for (a1, a2) in backbone_dists.keys():
             #check for each known distance pair if it is in this residue
             a1_spec = f"{a1}_{res_id}"
