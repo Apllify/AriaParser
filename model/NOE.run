@@ -1,5 +1,5 @@
 model model/NOE.mod;
-data model/NOE_test.dat;
+data test_file.txt;
 option solver baron;
 solve;
 display x;

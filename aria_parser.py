@@ -147,11 +147,11 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         Iq = atom_from_shift(chem2, chem_shift_to_atom)
         Ir = atom_from_shift(chem3, chem_shift_to_atom)
         
-        if "" in (Ip, Iq, Ir):
+        if "" in (Ip, Iq, Ir) or len(set((Ip, Iq, Ir))) != 3:
             continue
 
         #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
-        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h" or a[0] == "q"]
+        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h"]
 
         if len(hydrogens) != 2:
             continue
