@@ -61,8 +61,6 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
         
     return (chem_shift_to_atom, atom_set)
 
-        
-
 
 def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> Atom : 
     """
@@ -155,7 +153,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         triplet_assignment.append( (hydrogens[0], hydrogens[1], non_hydrogen[0], noe) )
 
         #store the result
-        triplet_assignment.append( (Ip, Iq, Ir, noe) )
+        #triplet_assignment.append( (Ip, Iq, Ir, noe) )
 
     return triplet_assignment
 
@@ -228,18 +226,17 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
     #for now only use some hardcoded generic dists
     backbone_dists = {
         ("n", "hn") : 0.980,
-        ("nh1", "h") : 0.980,
         ("n", "ca") : 1.458,
-        ("nh1", "ce") : 1.458,
         ("ca", "ha") : 1.080,
-        ("he1", "ha") : 1.080,
-        ("ca", "cb") : 1.525,
-        ("he1", "c") : 1.525
+        ("ca", "c") : 1.525,
+        ("c", "o") : 1.231 #oxygen on carbon backbone, does not appear in .prot file
     }
 
     atom_dists : PairAssignment = dict()
 
+    #systematically does not att C_id and O
     for res_id, residue in atoms.items():
+        atoms[res_id].add(f'o_{res_id}')
         for (a1, a2) in backbone_dists.keys():
             #check for each known distance pair if it is in this residue
             a1_spec = f"{a1}_{res_id}"
@@ -254,7 +251,7 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
 
 
 
-def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat"):
+def write_data(atoms: AtomSet, rhos: TripletAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
         #define atoms set
@@ -265,7 +262,9 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat
         outfile.write(";\n")
 
         #define covalent distances set
-        outfile.write("set COVDISTS := ;")
+        outfile.write("set COVDISTS := ")
+        for a1, a2 in cov_dists.keys(): outfile.write(f' {a1} {a2}')
+        outfile.write(";\n")
 
         #define distance set
         outfile.write("set DISTS := ")
@@ -275,6 +274,11 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment, filename = "NOE_data.dat
         #define RHOS set
         outfile.write("set RHOS := ")
         for a1, a2, a3, _ in rhos: outfile.write(f' {a1} {a2} {a3}')
+        outfile.write(";\n")
+
+        #give covalent distance data
+        outfile.write("param  CovDists := ")
+        for (a1, a2), dist in cov_dists.items(): outfile.write(f' {a1} {a2} {dist}')
         outfile.write(";\n")
 
         #give RHO data
