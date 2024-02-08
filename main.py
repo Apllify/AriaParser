@@ -37,14 +37,14 @@ if __name__ == "__main__":
     #pprint(d1_assign)
     #pprint(d2_assign)
 
-    cov_dists = aria_parser.compute_dists(atom_set, dict())
+    cov_dists = aria_parser.compute_cov_dists(atom_set, dict())
     ##pprint(cov_dists)
 
-    seq_to_AA = aria_parser.parse_top(top_content, d1_assign)
-    pprint(seq_to_AA)
+    res_info_list = aria_parser.parse_top(top_content, d1_assign)
+    pprint(res_info_list)
 
     #write out our results
-    aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.txt")
+    # aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.txt")
 
 
 

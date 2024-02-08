@@ -10,6 +10,12 @@ AtomSet = dict[int, set[Atom]] #atoms by residue
 PairAssignment = dict[ tuple[Atom, Atom], float ]
 TripletAssignment = list[ tuple[ Atom, Atom, Atom, float ] ]
 
+AtomToType = dict[Atom, str] 
+ResInfo = tuple[str     , set[Atom],   PairAssignment] 
+#^^^           (res_name, res_content, res_bond_lengths)
+
+ResInfoList = list[ ResInfo ]
+
 
 #GLOBAL DO NOT TOUCH
 CACHE_SIZE = 30
@@ -228,13 +234,26 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 angle_assignment[(m2, m3)] = dist
     return (bond_assignment, angle_assignment)
 
-def parse_top(content: str, bond_lenghts: PairAssignment):
-    """Parses the top file and finds the sequence + bond information for each amino acid"""
-    seq_to_AA = dict()
-    AA_name = ""
-    seq = ""
-    name_to_type = dict()
-    bonds = []
+
+
+def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoList :
+    """
+    Parses the top file and finds the sequence and
+    bond information for each amino acid.
+
+    The word residue is used to refer to AAs for
+    consistency and simplicity. 
+    """
+    
+    res_info_list : ResInfoList = []
+
+    inside_res = False
+    res_name = ""
+    res_atoms = set()
+    res_bond_lengths : PairAssignment = dict()
+
+
+    res_atom_to_type = dict() #doesn't appear in output
 
     for line in content.split('\n'):
         line = line.lower()
@@ -244,37 +263,53 @@ def parse_top(content: str, bond_lenghts: PairAssignment):
 
         opcode = terms[0]
 
-        match opcode:
-            case "residue":
-                AA_name = terms[1]
-            
-            case "atom":
-                name, type= terms[1], terms[2]
-                seq += name
-                name_to_type[name] = type[5:]
-            
-            case "bond":
-                n = len(terms)
-                for i in range(0, n, 3):
-                    if terms[i] == "!bond": continue
-                    a1, a2 = terms[i+1], terms[i+2]
-                    bond = (name_to_type[a1], name_to_type[a2])
-                    bond = tuple(sorted(bond))
-                    lenght = bond_lenghts[bond]
-                    bonds.append((a1, a2, lenght))
+        if opcode == "residue" : 
+            inside_res = True
 
-            case "end":
-                seq_to_AA[seq] = (AA_name, bonds)
-                bonds = []
-                name_to_type = dict()
-                seq = ""
-                AA_name = ""
-            case _:
-                pass
-    return seq_to_AA
+        #only process commands within a residue
+        if inside_res : 
+            match opcode:
+                case "residue":
+                    res_name = terms[1]
+                
+                case "atom":
+                    name, type= terms[1], terms[2]
+                    res_atoms.add(name)
+                    res_atom_to_type[name] = type[5:]
+                
+                case "bond":
+                    n = len(terms)
+                    for i in range(0, n, 3):
+                        #ignore comments
+                        if terms[i][0] == "!": 
+                            continue
+
+                        #find the length of bond from .par data
+                        a1, a2 = terms[i+1], terms[i+2]
+                        general_bond = (res_atom_to_type[a1], res_atom_to_type[a2])
+                        general_bond = tuple(sorted(general_bond))
+
+                        #not all cov lengths are known
+                        length = bond_lengths.get(general_bond)
+                        if length != None :
+                            res_bond_lengths[(a1, a2)] = length
+
+                case "end":
+                    #add our new entry and reset variables
+                    res_info_list.append((res_name, res_atoms, res_bond_lengths))
+
+                    inside_res = False
+                    res_name = ""
+                    res_atoms = set()
+                    res_bond_lengths = dict()
+
+                    res_atom_to_type = dict()
+
+
+    return res_info_list
 
                 
-def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
+def compute_cov_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
     """
     Uses the generic covalent bond distances 
     obtained from the .par file to find all the
