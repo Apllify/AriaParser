@@ -197,19 +197,18 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         Ip = atoms_from_shift(chem1, chem_shift_to_atom)
         Iq = atoms_from_shift(chem2, chem_shift_to_atom)
         Ir = atoms_from_shift(chem3, chem_shift_to_atom)
+
+        #make sure only C or Ns are in Ip
+        Ip = list(filter(lambda atom : atom[0] in "CN", Ip))
+
+        #make sure only Hs and Qs are in Ip,Ir
+        Iq = list(filter(lambda atom : atom[0] in "HQ", Iq))
+        Ir = list(filter(lambda atom : atom[0] in "HQ", Ir))
         
         #Check that each chemical shift correspnds to something
-        if len(Ip) == 0 or len(Iq) == 0 or len(Ir) == 0:
+        if 0 in (len(Ip), len(Iq), len(Ir)):
             continue
-        
-        #To Rali and Cong: this was the best way I could think to do this lol 
-        #Check that Ip only contains carbons or nitrogens
-        if len([a for a in Ip if a[0] not in "CN"]) != 0:
-            continue
-
-        #Check that only hydrogens are in h and q
-        if len([a for a in [*Iq, *Ir] if a[0] not in "HQ"]) != 0:
-            continue
+    
 
         triplet_assignment.append((Ip, Iq, Ir, noe))
 

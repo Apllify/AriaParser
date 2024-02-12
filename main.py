@@ -41,6 +41,7 @@ if __name__ == "__main__":
 
     #store NOE measurements with the associated atoms
     noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_atom)
+    pprint(noe_assign)
     #print(noe_assign)
 
     cov_dists = aria_parser.compute_dists(atom_set, dict())
