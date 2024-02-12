@@ -32,7 +32,6 @@ def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, Atom
     seq = set() #atom sequence of current resideu
     AA_name = ""
     hydrogen_counter = 0 #unify notations
-    group_id = ""
 
     for line in lines : 
         terms = line.split()
