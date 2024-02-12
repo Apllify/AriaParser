@@ -28,7 +28,6 @@ if __name__ == "__main__":
     res_info_dict = aria_parser.parse_top(top_content, d1_assign)
 
 
-
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()

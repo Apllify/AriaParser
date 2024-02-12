@@ -74,13 +74,11 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         #check if we just switched to a new residue
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
-            # if AA_name != "???": 
-            #     # print(AA_name)
-            #     print("succeeded !!!")
-            # else: 
-            #     # print("succeeded !!!")
-            #     # print(f'res_nr: {last_res_id}, AA not found')
-            #     # print(seq)
+            if AA_name != "???": 
+                print(AA_name)
+            else: 
+                print(f'res_nr: {last_res_id}, AA not found')
+                print(seq)
             
             atom_set[res_id].add(f'O_{res_id}')
             last_res_id = res_id
@@ -141,10 +139,6 @@ def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
     
     Returns "???" if no match found
     """
-    print("ENTERING MATCH")
-    print(atoms)
-
-
     for name, (seq, _) in res_info_dict.items():
         if seq == atoms:
            #special case since CYS and SER have same composition
@@ -153,10 +147,10 @@ def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
            
             return name
     
-    if atoms | {"HZ3"} == res_info_dict["LYS"]: return "LYS"
-    if atoms | {"HE2"} == res_info_dict["HIS"]: return "HIS"
-    if atoms - {"HE1"} == res_info_dict["GLU"]: return "GLU"
-    if atoms - {"HD1"} == res_info_dict["ASP"]: return "ASP"
+    if atoms | {"HZ3"} == res_info_dict["LYS"][0]: return "LYS"
+    if atoms | {"HE2"} == res_info_dict["HIS"][0]: return "HIS"
+    if atoms - {"HE1"} == res_info_dict["GLU"][0]: return "GLU"
+    if atoms - {"HD1"} == res_info_dict["ASP"][0]: return "ASP"
     if {"NE", "NH1", "NH2"} <= atoms: return "ARG"
 
     return "???"
@@ -308,6 +302,10 @@ def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
             inside_res = True
             res_name = terms[1]
 
+            if res_name == "ACE": 
+                break #rest of file is irrelevant 
+
+
 
         #only process commands within a residue
         if inside_res : 
@@ -315,7 +313,9 @@ def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
                
                 case "ATOM":
                     name, type= terms[1], terms[2]
-                    res_atoms.add(name)
+
+                    if name[0] not in ("O", "S"): 
+                        res_atoms.add(name)
                     res_atom_to_type[name] = type[5:]
                 
                 case "BOND":
