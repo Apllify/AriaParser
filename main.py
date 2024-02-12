@@ -25,20 +25,17 @@ if __name__ == "__main__":
     #TOP parse
     with open(args.top_file, "r") as stream:
         top_content = stream.read()
+    res_info_dict = aria_parser.parse_top(top_content, d1_assign)
 
-    #parse top file
-    seq_to_AA, AA_to_seq = aria_parser.parse_top(top_content, d1_assign)
-    for n1, s1 in AA_to_seq.items():
-        for n2, s2 in AA_to_seq.items():
-            if s1 == s2 and n1 != n2:
-                print(n1, n2)
 
 
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
-    chem_shift_to_atom, atom_set = aria_parser.parse_prot(prot_content,seq_to_AA, AA_to_seq )
-    print(f'ASP: {AA_to_seq["ASP"]}')
+    chem_shift_to_atom, atom_set = aria_parser.parse_prot(prot_content, res_info_dict)
+    #print(f'ASP: {res_info_dict["ASP"]}')
+
+
     #PEAKS PARSE
     with open(args.peaks_file, "r") as stream : 
         peaks_content = stream.read()

@@ -5,10 +5,17 @@ from collections import OrderedDict
 Atom = str #  ID of the form ATOMTYPE_RESNUM
 
 ChemShiftToAtom = dict[tuple[float, float], Atom]
-AtomSet = dict[int, set[Atom]] #atoms by residue
+AtomsByRes = dict[int, set[Atom]] #atoms by residue
 
 PairAssignment = dict[ tuple[Atom, Atom], float ]
-TripletAssignment = list[ tuple[ list, list, list, float ] ]
+TripletAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
+
+
+ResInfo = tuple[set[Atom],   PairAssignment] 
+#              (res_content, res_bond_lengths)
+ResInfoDict = dict[str, ResInfo]
+
+
 
 
 #GLOBAL DO NOT TOUCH
@@ -16,7 +23,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, AtomSet]:
+def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -29,7 +36,7 @@ def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, Atom
     lines = content.split("\n")
     last_res_id = 1
 
-    seq = set() #atom sequence of current resideu
+    seq = set() #atom sequence of current residue
     AA_name = ""
     hydrogen_counter = 0 #unify notations
 
@@ -64,13 +71,17 @@ def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, Atom
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
 
+        #check if we just switched to a new residue
         if last_res_id != res_id:
+            AA_name = match_AA(seq, res_info_dict)
+            # if AA_name != "???": 
+            #     # print(AA_name)
+            #     print("succeeded !!!")
+            # else: 
+            #     # print("succeeded !!!")
+            #     # print(f'res_nr: {last_res_id}, AA not found')
+            #     # print(seq)
             
-            AA_name = match_AA(seq, AA_to_seq)
-            if AA_name != -1: print(AA_name)
-            else: 
-                print(f'res_nr: {last_res_id}, AA not found')
-                print(seq)
             atom_set[res_id].add(f'O_{res_id}')
             last_res_id = res_id
             seq = set()
@@ -93,7 +104,7 @@ def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, Atom
         
     return (chem_shift_to_atom, atom_set)
 
-def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> set() : 
+def atoms_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> list[Atom] : 
     """
     Determine the id of an atom from its chemical shift
     using the value intervals established from the prot file 
@@ -123,21 +134,32 @@ def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) ->
     
     return atoms
 
-def match_AA(target_AA: str, AA_to_seq: dict):
-   
-    for name, seq in AA_to_seq.items():
-       if seq == target_AA:
-           if name == "CYS" or name == "SER":
-               return "CYS/SER"
-           return name
+def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
+    """
+    Tries to find the amino acid which most closely
+    matches the given atom set.
     
-    if target_AA |{"HZ3"} == AA_to_seq["LYS"]: return "LYS"
-    if target_AA | {"HE2"} == AA_to_seq["HIS"]: return "HIS"
-    if target_AA - {"HE1"} == AA_to_seq["GLU"]: return "GLU"
-    if target_AA - {"HD1"} == AA_to_seq["ASP"]: return "ASP"
-    if {"NE", "NH1", "NH2"} <= target_AA: return "ARG"
+    Returns "???" if no match found
+    """
+    print("ENTERING MATCH")
+    print(atoms)
 
-    return -1
+
+    for name, (seq, _) in res_info_dict.items():
+        if seq == atoms:
+           #special case since CYS and SER have same composition
+            if name in ("CYS", "SER"):
+               return "CYS/SER" 
+           
+            return name
+    
+    if atoms | {"HZ3"} == res_info_dict["LYS"]: return "LYS"
+    if atoms | {"HE2"} == res_info_dict["HIS"]: return "HIS"
+    if atoms - {"HE1"} == res_info_dict["GLU"]: return "GLU"
+    if atoms - {"HD1"} == res_info_dict["ASP"]: return "ASP"
+    if {"NE", "NH1", "NH2"} <= atoms: return "ARG"
+
+    return "???"
     
 def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletAssignment:
     """
@@ -178,9 +200,9 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
             continue 
         
         #find the atom IDs from their chem shifts
-        Ip = atom_from_shift(chem1, chem_shift_to_atom)
-        Iq = atom_from_shift(chem2, chem_shift_to_atom)
-        Ir = atom_from_shift(chem3, chem_shift_to_atom)
+        Ip = atoms_from_shift(chem1, chem_shift_to_atom)
+        Iq = atoms_from_shift(chem2, chem_shift_to_atom)
+        Ir = atoms_from_shift(chem3, chem_shift_to_atom)
         
         #Check that each chemical shift correspnds to something
         if len(Ip) == 0 or len(Iq) == 0 or len(Ir) == 0:
@@ -253,15 +275,26 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 angle_assignment[(m2, m3)] = dist
     return (bond_assignment, angle_assignment)
 
-def parse_top(content: str, bond_lenghts: PairAssignment):
-    """Parses the top file and finds the sequence + bond information for each amino acid"""
-    seq_to_AA = dict()
-    AA_name = ""
-    AA_to_seq = dict()
-    seq_set = set()
-    seq = ""
-    name_to_type = dict()
-    bonds = []
+
+
+def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
+    """
+    Parses the top file and finds the sequence and
+    bond information for each amino acid.
+
+    The word residue is used to refer to AAs for
+    consistency and simplicity. 
+    """
+    
+    res_info_dict : ResInfoDict = dict()
+
+    inside_res = False
+    res_name = ""
+    res_atoms = set()
+    res_bond_lengths : PairAssignment = dict()
+
+    res_atom_to_type = dict() #doesn't appear in output
+
 
     for line in content.split('\n'):
         line = line.upper()
@@ -271,42 +304,53 @@ def parse_top(content: str, bond_lenghts: PairAssignment):
 
         opcode = terms[0]
 
-        match opcode:
-            case "RESIDUE":
-                AA_name = terms[1]
-                #when we come to ace we stop, tbh idk hat to do here
-                if AA_name == "ACE": break
-            
-            case "ATOM":
-                name, type= terms[1], terms[2]
-                name_to_type[name] = type[5:]
-                if "O" not in name and "S" not in name: seq_set.add(name)
-                seq += name
-                
-            
-            case "BOND":
-                n = len(terms)
-                for i in range(0, n, 3):
-                    if terms[i] == "!bond": continue
-                    a1, a2 = terms[i+1], terms[i+2]
-                    bond = (name_to_type[a1], name_to_type[a2])
-                    bond = tuple(sorted(bond))
-                    lenght = bond_lenghts[bond]
-                    bonds.append((a1, a2, lenght))
+        if opcode == "RESIDUE" : 
+            inside_res = True
+            res_name = terms[1]
 
-            case "END":
-                seq_to_AA[seq] = (AA_name, bonds)
-                AA_to_seq[AA_name] = seq_set
-                bonds = []
-                name_to_type = dict()
-                seq = ""
-                seq_set = set()
-                AA_name = ""
-            case _:
-                pass
-    return seq_to_AA, AA_to_seq
+
+        #only process commands within a residue
+        if inside_res : 
+            match opcode:
+               
+                case "ATOM":
+                    name, type= terms[1], terms[2]
+                    res_atoms.add(name)
+                    res_atom_to_type[name] = type[5:]
+                
+                case "BOND":
+                    n = len(terms)
+                    for i in range(0, n, 3):
+                        #ignore comments
+                        if terms[i][0] == "!": 
+                            continue
+
+                        #find the length of bond from .par data
+                        a1, a2 = terms[i+1], terms[i+2]
+                        general_bond = (res_atom_to_type[a1], res_atom_to_type[a2])
+                        general_bond = tuple(sorted(general_bond))
+
+                        #not all cov lengths are known
+                        length = bond_lengths.get(general_bond)
+                        if length != None :
+                            res_bond_lengths[(a1, a2)] = length
+
+                case "END":
+                    #add our new entry and reset variables
+                    res_info_dict[res_name] = (res_atoms, res_bond_lengths)
+
+                    inside_res = False
+                    res_name = ""
+                    res_atoms = set()
+                    res_bond_lengths = dict()
+
+                    res_atom_to_type = dict()
+
+
+    return res_info_dict
            
-def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
+
+def compute_dists(atoms : AtomsByRes, generic_dists : PairAssignment) -> PairAssignment :
     """
     Uses the generic covalent bond distances 
     obtained from the .par file to find all the
@@ -336,7 +380,7 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
             
     return atom_dists
 
-def write_data(atoms: AtomSet, rhos: TripletAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
+def write_data(atoms: AtomsByRes, rhos: TripletAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
         #define atoms set
