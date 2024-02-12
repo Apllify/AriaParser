@@ -11,8 +11,8 @@ PairAssignment = dict[ tuple[Atom, Atom], float ]
 TripletAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
 
 
-ResInfo = tuple[set[Atom],   PairAssignment] 
-#              (res_content, res_bond_lengths)
+ResInfo = tuple[set[Atom],   PairAssignment,  PairAssignment] 
+#              (res_content, res_cov_lengths, res_angle_lengths)
 ResInfoDict = dict[str, ResInfo]
 
 
@@ -74,11 +74,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         #check if we just switched to a new residue
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
-            if AA_name != "???": 
-                print(AA_name)
-            else: 
-                print(f'res_nr: {last_res_id}, AA not found')
-                print(seq)
+
             
             atom_set[res_id].add(f'O_{res_id}')
             last_res_id = res_id
@@ -139,7 +135,7 @@ def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
     
     Returns "???" if no match found
     """
-    for name, (seq, _) in res_info_dict.items():
+    for name, (seq, _, _) in res_info_dict.items():
         if seq == atoms:
            #special case since CYS and SER have same composition
             if name in ("CYS", "SER"):
@@ -204,7 +200,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         #make sure only Hs and Qs are in Ip,Ir
         Iq = list(filter(lambda atom : atom[0] in "HQ", Iq))
         Ir = list(filter(lambda atom : atom[0] in "HQ", Ir))
-        
+
         #Check that each chemical shift correspnds to something
         if 0 in (len(Ip), len(Iq), len(Ir)):
             continue
@@ -247,7 +243,8 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                     dist = float(terms[4])
                 except : 
                     continue
-                bond_assignment[(m1, m2)] = dist
+                pair_key = tuple(sorted((m1, m2)))
+                bond_assignment[pair_key] = dist
 
             case "ANGLE" : 
                 #retrieve angle data
@@ -257,20 +254,25 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 except : 
                     continue
 
-                #get the two lengths of the triangle (we check both orders)
-                d1 = bond_assignment.get((m1, m2)) or bond_assignment.get((m2, m1))
-                d2 = bond_assignment.get((m1, m3)) or bond_assignment.get((m3, m1))
+                #get the two lengths of the triangle
+                edge1, edge2 = tuple(sorted((m1, m2))), tuple(sorted((m2, m3)))
+                d1 = bond_assignment.get(edge1)
+                d2 = bond_assignment.get(edge2)
                 if d1 == None or d2 == None : 
+                    print("oof missing")
                     continue
 
                 #compute and store the 3rd length
                 dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
-                angle_assignment[(m2, m3)] = dist
+                pair_key = tuple(sorted((m1, m3)))
+
+                angle_assignment[pair_key] = dist
+
     return (bond_assignment, angle_assignment)
 
 
 
-def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
+def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : PairAssignment) -> ResInfoDict :
     """
     Parses the top file and finds the sequence and
     bond information for each amino acid.
@@ -284,7 +286,8 @@ def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
     inside_res = False
     res_name = ""
     res_atoms = set()
-    res_bond_lengths : PairAssignment = dict()
+    res_cov_lengths : PairAssignment = dict()
+    res_angle_lengths : PairAssignment = dict()
 
     res_atom_to_type = dict() #doesn't appear in output
 
@@ -329,19 +332,38 @@ def parse_top(content: str, bond_lengths: PairAssignment) -> ResInfoDict :
                         general_bond = (res_atom_to_type[a1], res_atom_to_type[a2])
                         general_bond = tuple(sorted(general_bond))
 
-                        #not all cov lengths are known
-                        length = bond_lengths.get(general_bond)
-                        if length != None :
-                            res_bond_lengths[(a1, a2)] = length
+                        #check if known cov bond length
+                        cov_length = cov_lengths.get(general_bond)
+                        if cov_length != None :
+                            res_cov_lengths[(a1, a2)] = cov_length
+                            continue
 
                 case "END":
+                    #go through atom pairs to check if any dists are known from angles
+                    atoms_list = list(res_atoms)
+                    for i in range(len(atoms_list)):
+                        for j in range(i+1, len(atoms_list)):
+
+                            #determine current pair 
+                            ai, aj = atoms_list[i], atoms_list[j]
+                            pair_key = (res_atom_to_type[ai], res_atom_to_type[aj])
+                            pair_key = tuple(sorted(pair_key))
+
+                            #see if angle info tells us the length of this pair
+                            angle_length = angle_lengths.get(pair_key)
+                            if angle_length != None : 
+                                res_angle_lengths[(ai, aj)] = angle_length
+
+
                     #add our new entry and reset variables
-                    res_info_dict[res_name] = (res_atoms, res_bond_lengths)
+                    res_info_dict[res_name] = (res_atoms, res_cov_lengths, res_angle_lengths)
 
                     inside_res = False
                     res_name = ""
                     res_atoms = set()
-                    res_bond_lengths = dict()
+
+                    res_cov_lengths = dict()
+                    res_angle_lengths = dict()
 
                     res_atom_to_type = dict()
 
