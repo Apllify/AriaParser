@@ -1,0 +1,42 @@
+# rawNOE run file
+
+## read model and data
+model rawnoe.mod;
+data rawnoe.dat;
+
+#expand > rawnoe-flat.mod;
+
+## choose solver
+#option solver baron;
+#option solver snopt;
+#option snopt_options "outlev=2";
+#option solver knitro;
+#option knitro_options "outlev=2"
+option solver ipopt;
+option ipopt_options "max_iter=2000";
+
+## solve problem
+solve;
+
+## output to screen
+print "NOE distances (u,v,distance):";
+for {(u,v) in FA} {
+  printf "dst: %s %s %g\n", u, v, sqrt(d2[u,v]);
+}
+print;
+print "molecule realization (v,k,value):";
+for {a in A, k in K} {
+  printf "rlz: %s %d %g\n", a, k, x[a,k];
+}
+print;
+printf "realization error: %g\n", error;
+
+## output realization to PDB format
+print "HEADER  realization by rawnoe.run" > rawnoe-out.pdb;
+print "MODEL" >> rawnoe-out.pdb;
+for {a in A} {
+  printf "ATOM    %3d %3s UKN %5d %2.3f %2.3f %2.3f  1.00  0.00        %1s\n", atomId[a], atomType[a], residue[a], x[a,1], x[a,2], x[a,3], substr(a,1,1) >> rawnoe-out.pdb;
+}
+print "ENDMDL" >> rawnoe-out.pdb;
+print "END" >> rawnoe-out.pdb;
+

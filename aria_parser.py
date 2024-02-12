@@ -8,7 +8,7 @@ ChemShiftToAtom = dict[tuple[float, float], Atom]
 AtomSet = dict[int, set[Atom]] #atoms by residue
 
 PairAssignment = dict[ tuple[Atom, Atom], float ]
-TripletAssignment = list[ tuple[ Atom, Atom, Atom, float ] ]
+TripletAssignment = list[ tuple[ list, list, list, float ] ]
 
 
 #GLOBAL DO NOT TOUCH
@@ -16,7 +16,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
+def parse_prot(content : str, AA_dict, AA_to_seq) -> tuple[ChemShiftToAtom, AtomSet]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -27,7 +27,11 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
     atom_set = dict()
 
     lines = content.split("\n")
-    last_res_id = -1
+    last_res_id = 1
+
+    seq = set() #atom sequence of current resideu
+    AA_name = ""
+    hydrogen_counter = 0 #unify notations
 
     for line in lines : 
         terms = line.split()
@@ -49,7 +53,7 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
             continue
 
         #remember this atom's name and ID for later
-        atom_name =  f"{atom_type.lower()}_{res_id}"
+        atom_name =  f"{atom_type.upper()}_{res_id}"
         if atom_set.get(res_id) : 
             atom_set[res_id].add(atom_name)
         else : 
@@ -59,19 +63,37 @@ def parse_prot(content : str) -> tuple[ChemShiftToAtom, AtomSet]:
         if chem_shift != 999 : 
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
-        #called once per residue, for adding some hardcoded atoms
-        if last_res_id != res_id : 
 
-            atom_set[res_id].add(f'o_{res_id}')
-
-
+        if last_res_id != res_id:
+            
+            AA_name = match_AA(seq, AA_to_seq)
+            if AA_name != -1: print(AA_name)
+            else: 
+                print(f'res_nr: {last_res_id}, AA not found')
+                print(seq)
+            atom_set[res_id].add(f'O_{res_id}')
             last_res_id = res_id
-
+            seq = set()
+            hydrogen_counter = 0
+        
+        if "Q" in atom_type:
+            hydrogen_counter = 0
+            group_id = ""
+            continue
+       
+        elif atom_type[-1].isdigit() and atom_type[0] == "H" and f'C{atom_type[1:]}' not in seq and f'N{atom_type[1:]}' not in seq:
+            hydrogen_counter += 1
+            seq.add(f'{atom_type[:-1]}{hydrogen_counter}')
+            continue
+        else:
+            hydrogen_counter = 0
+            seq.add(atom_type)
+            continue
+        
         
     return (chem_shift_to_atom, atom_set)
 
-
-def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> Atom : 
+def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> set() : 
     """
     Determine the id of an atom from its chemical shift
     using the value intervals established from the prot file 
@@ -80,8 +102,7 @@ def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) ->
     """
     global lookup_cache
 
-    cur_min_name = ""
-    cur_min =  math.inf
+    atoms = []
 
     #check if we already computed this recently
     if chem_shift in lookup_cache:
@@ -91,22 +112,33 @@ def atom_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) ->
     #iterate through all intervals
     for (lb, ub) in chem_shift_to_atom.keys():
         if chem_shift >= lb and chem_shift <= ub: 
-
-            dist = abs(chem_shift - (ub+lb)/2)
-            if  dist < cur_min:
-                cur_min_name = chem_shift_to_atom[(lb, ub)]
-                cur_min = dist
+            atoms.append(chem_shift_to_atom[lb, ub])
+    
 
     #store result and return
     if len(lookup_cache) >= CACHE_SIZE:
         lookup_cache.popitem(last=False)
 
-    lookup_cache[chem_shift] = cur_min_name
+    lookup_cache[chem_shift] = atoms
     
-    return cur_min_name
+    return atoms
 
+def match_AA(target_AA: str, AA_to_seq: dict):
+   
+    for name, seq in AA_to_seq.items():
+       if seq == target_AA:
+           if name == "CYS" or name == "SER":
+               return "CYS/SER"
+           return name
+    
+    if target_AA |{"HZ3"} == AA_to_seq["LYS"]: return "LYS"
+    if target_AA | {"HE2"} == AA_to_seq["HIS"]: return "HIS"
+    if target_AA - {"HE1"} == AA_to_seq["GLU"]: return "GLU"
+    if target_AA - {"HD1"} == AA_to_seq["ASP"]: return "ASP"
+    if {"NE", "NH1", "NH2"} <= target_AA: return "ARG"
 
-
+    return -1
+    
 def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletAssignment:
     """
     Uses the prot information to read the peaks file 
@@ -117,6 +149,9 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
     lines = content.split("\n")
     #Assignmnet of rho to corresponding atoms follows scheme detailed in README.txt
     triplet_assignment : TripletAssignment = []
+    triplets = []
+    unbound_carbon_triplet = []
+    hydrogen_pairs = dict()
 
     for line in lines : 
         #ignore comments
@@ -147,32 +182,22 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
         Iq = atom_from_shift(chem2, chem_shift_to_atom)
         Ir = atom_from_shift(chem3, chem_shift_to_atom)
         
-        if "" in (Ip, Iq, Ir) or len(set((Ip, Iq, Ir))) != 3:
+        #Check that each chemical shift correspnds to something
+        if len(Ip) == 0 or len(Iq) == 0 or len(Ir) == 0:
             continue
-
-        #order the triplets so the order is hyrdrogen, hydrogen, non-hydrogen
-        hydrogens = [a for a in (Ip, Iq, Ir) if a[0] == "h" or a[0] == "q"]
-
-        if len(hydrogens) != 2:
-            continue
-
-        non_hydrogen = [a for a in ((Ip, Iq, Ir)) if a not in hydrogens]
-
-        (Ip, Iq, Ir) = (hydrogens[0], hydrogens[1], non_hydrogen[0])
-        atom_C, resnr_C = Ir.split("_")
-        k = len(atom_C)
-        for a in (Ip, Iq):
-            atom, resnr = a.split("_")
-            if resnr == resnr_C and atom_C[1:] == atom[1:k]:
-                if (Ip, Iq, Ir, noe) not in triplet_assignment: triplet_assignment.append( (Ip, Iq, Ir, noe))
-                break
         
-        #store the result
-        #triplet_assignment.append( (Ip, Iq, Ir, noe) )
+        #To Rali and Cong: this was the best way I could think to do this lol 
+        #Check that Ip only contains carbons or nitrogens
+        if len([a for a in Ip if a[0] not in "CN"]) != 0:
+            continue
+
+        #Check that only hydrogens are in h and q
+        if len([a for a in [*Iq, *Ir] if a[0] not in "HQ"]) != 0:
+            continue
+
+        triplet_assignment.append((Ip, Iq, Ir, noe))
 
     return triplet_assignment
-
-
 
 def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]: 
     """
@@ -190,7 +215,7 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
     for line in content.split("\n") : 
 
         #file is case insensitive
-        line = line.lower()
+        line = line.upper()
         terms = line.split()
         # remove terms of {sd=...} in aria.par
         terms = list(filter(lambda term: ('{' not in term) and ('}' not in term), terms))
@@ -200,7 +225,7 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
 
         opcode = terms[0]
         match opcode :  
-            case "bond":
+            case "BOND":
                 #store the length of the given bond
                 try : 
                     m1, m2 = terms[1], terms[2]
@@ -209,7 +234,7 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                     continue
                 bond_assignment[(m1, m2)] = dist
 
-            case "angle" : 
+            case "ANGLE" : 
                 #retrieve angle data
                 try : 
                     m1, m2, m3 = terms[1], terms[2], terms[3]
@@ -232,12 +257,14 @@ def parse_top(content: str, bond_lenghts: PairAssignment):
     """Parses the top file and finds the sequence + bond information for each amino acid"""
     seq_to_AA = dict()
     AA_name = ""
+    AA_to_seq = dict()
+    seq_set = set()
     seq = ""
     name_to_type = dict()
     bonds = []
 
     for line in content.split('\n'):
-        line = line.lower()
+        line = line.upper()
         terms = line.split()
         if len(terms) == 0:
             continue
@@ -245,15 +272,19 @@ def parse_top(content: str, bond_lenghts: PairAssignment):
         opcode = terms[0]
 
         match opcode:
-            case "residue":
+            case "RESIDUE":
                 AA_name = terms[1]
+                #when we come to ace we stop, tbh idk hat to do here
+                if AA_name == "ACE": break
             
-            case "atom":
+            case "ATOM":
                 name, type= terms[1], terms[2]
-                seq += name
                 name_to_type[name] = type[5:]
+                if "O" not in name and "S" not in name: seq_set.add(name)
+                seq += name
+                
             
-            case "bond":
+            case "BOND":
                 n = len(terms)
                 for i in range(0, n, 3):
                     if terms[i] == "!bond": continue
@@ -263,17 +294,18 @@ def parse_top(content: str, bond_lenghts: PairAssignment):
                     lenght = bond_lenghts[bond]
                     bonds.append((a1, a2, lenght))
 
-            case "end":
+            case "END":
                 seq_to_AA[seq] = (AA_name, bonds)
+                AA_to_seq[AA_name] = seq_set
                 bonds = []
                 name_to_type = dict()
                 seq = ""
+                seq_set = set()
                 AA_name = ""
             case _:
                 pass
-    return seq_to_AA
-
-                
+    return seq_to_AA, AA_to_seq
+           
 def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssignment :
     """
     Uses the generic covalent bond distances 
@@ -304,10 +336,6 @@ def compute_dists(atoms : AtomSet, generic_dists : PairAssignment) -> PairAssign
             
     return atom_dists
 
-    
-
-
-
 def write_data(atoms: AtomSet, rhos: TripletAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
@@ -325,7 +353,7 @@ def write_data(atoms: AtomSet, rhos: TripletAssignment,  cov_dists: PairAssignme
 
         #define distance set
         outfile.write("set DISTS := ")
-        for a1, a2, _, _ in rhos: outfile.write(f' {a1} {a2}')
+        for _, a1, a2, _ in rhos: outfile.write(f' {a1} {a2}')
         outfile.write(";\n")
 
         #define RHOS set
