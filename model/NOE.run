@@ -2,6 +2,6 @@ model model/NOE.mod;
 data test_file.txt;
 option solver baron;
 solve;
-display x;
+display x > model_output.txt;
 display d2, sm, sp;
 display ERROR;
