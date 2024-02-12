@@ -23,7 +23,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes]:
+def parse_prot(content : str, res_info_dict : ResInfoDict, full_atom_set = 0) -> tuple[ChemShiftToAtom, AtomsByRes]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -67,7 +67,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             atom_set[res_id] = {atom_name}
 
         #also store the chem shift of atom if it is well defined
-        if chem_shift != 999 : 
+        if chem_shift != 999 and not full_atom_set: 
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
 
