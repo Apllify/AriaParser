@@ -1,5 +1,6 @@
 import math
 from collections import OrderedDict
+from pprint import pprint #debugging tool
 
 #Type defs
 Atom = str #  ID of the form ATOMTYPE_RESNUM
@@ -9,7 +10,9 @@ AtomsByRes = dict[int, set[Atom]] #atoms by residue
 ResIdToAA = dict[int, str]
 
 PairAssignment = dict[ tuple[Atom, Atom], float ]
-TripletAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
+TripletAssignment = dict[ tuple[Atom, Atom, Atom], float]
+
+NOEAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
 
 
 ResInfo = tuple[set[Atom],   PairAssignment,  PairAssignment] 
@@ -73,10 +76,10 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
 
-        #check if we just switched to a new residue
+        #find our AA if we just switch to a new residue
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
-            res_id_to_AA[res_id] = AA_name
+            res_id_to_AA[last_res_id] = AA_name
 
             
             atom_set[res_id].add(f'O_{res_id}')
@@ -84,11 +87,13 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             seq = set()
             hydrogen_counter = 0
         
+        #pseudo-atoms don't count for residue content
         if "Q" in atom_type:
             hydrogen_counter = 0
             group_id = ""
             continue
        
+        #some atom names need to be tweaked to match .top format
         elif atom_type[-1].isdigit() and atom_type[0] == "H" and f'C{atom_type[1:]}' not in seq and f'N{atom_type[1:]}' not in seq:
             hydrogen_counter += 1
             seq.add(f'{atom_type[:-1]}{hydrogen_counter}')
@@ -154,7 +159,7 @@ def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
 
     return "???"
     
-def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletAssignment:
+def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssignment:
     """
     Uses the prot information to read the peaks file 
     and transform each triplet of chem shifts into their 
@@ -163,7 +168,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
     
     lines = content.split("\n")
     #Assignmnet of rho to corresponding atoms follows scheme detailed in README.txt
-    triplet_assignment : TripletAssignment = []
+    triplet_assignment : NOEAssignment = []
     triplets = []
     unbound_carbon_triplet = []
     hydrogen_pairs = dict()
@@ -213,7 +218,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> TripletA
 
     return triplet_assignment
 
-def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]: 
+def parse_par(content : str) -> tuple[PairAssignment, TripletAssignment]: 
     """
     Parses the content of the .par file
     into a list of generic distances between atom types
@@ -224,7 +229,7 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
     """
 
     bond_assignment : PairAssignment = dict()
-    angle_assignment : PairAssignment = dict()
+    angle_assignment : TripletAssignment = dict()
 
     for line in content.split("\n") : 
 
@@ -262,12 +267,11 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
                 d1 = bond_assignment.get(edge1)
                 d2 = bond_assignment.get(edge2)
                 if d1 == None or d2 == None : 
-                    print("oof missing")
                     continue
 
                 #compute and store the 3rd length
                 dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
-                pair_key = tuple(sorted((m1, m3)))
+                pair_key = (m2, *sorted((m1, m3))) #anchor atom first
 
                 angle_assignment[pair_key] = dist
 
@@ -275,7 +279,7 @@ def parse_par(content : str) -> tuple[PairAssignment, PairAssignment]:
 
 
 
-def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : PairAssignment) -> ResInfoDict :
+def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : TripletAssignment) -> ResInfoDict :
     """
     Parses the top file and finds the sequence and
     bond information for each amino acid.
@@ -342,20 +346,42 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : PairAss
                             continue
 
                 case "END":
-                    #go through atom pairs to check if any dists are known from angles
-                    atoms_list = list(res_atoms)
-                    for i in range(len(atoms_list)):
-                        for j in range(i+1, len(atoms_list)):
 
-                            #determine current pair 
-                            ai, aj = atoms_list[i], atoms_list[j]
-                            pair_key = (res_atom_to_type[ai], res_atom_to_type[aj])
-                            pair_key = tuple(sorted(pair_key))
+                    #go through atom triplets to check if any dists are known from angles
+                    res_bonds = list(res_cov_lengths.keys())
+                    for anchor in res_atoms:  
+                        for i in range(len(res_bonds)):
 
-                            #see if angle info tells us the length of this pair
-                            angle_length = angle_lengths.get(pair_key)
-                            if angle_length != None : 
-                                res_angle_lengths[(ai, aj)] = angle_length
+                            #consider a first bond of our central atom
+                            bond_i = res_bonds[i]
+                            if anchor not in bond_i : 
+                                continue 
+                            try : 
+                                atom_i = next(filter(lambda x : x != anchor, bond_i))
+                            except : 
+                                continue
+
+                            for j in range(i+1, len(res_bonds)):
+                                #consider a second different bond to our central atom
+                                bond_j = res_bonds[j]
+                                if anchor not in bond_j : 
+                                    continue 
+                                try : 
+                                    atom_j = next(filter(lambda x : x != anchor, bond_j))
+                                except : 
+                                    continue
+
+
+                                #check if this triplet is in the angles assignment
+                                general_ij = (res_atom_to_type[atom_i], res_atom_to_type[atom_j])
+                                triplet_key = (res_atom_to_type[anchor], *sorted(general_ij))
+
+
+                                #store this length if applicable
+                                angle_length =angle_lengths.get(triplet_key)
+                                if angle_length != None :
+
+                                    res_angle_lengths[(atom_i, atom_j)] = angle_length
 
 
                     #add our new entry and reset variables
@@ -374,37 +400,37 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : PairAss
     return res_info_dict
            
 
-def compute_dists(atoms : AtomsByRes, generic_dists : PairAssignment) -> PairAssignment :
-    """
-    Uses the generic covalent bond distances 
-    obtained from the .par file to find all the
-    distances applicable to our atoms set
-    """
+# def compute_dists(atoms : AtomsByRes, generic_dists : PairAssignment) -> PairAssignment :
+#     """
+#     Uses the generic covalent bond distances 
+#     obtained from the .par file to find all the
+#     distances applicable to our atoms set
+#     """
     
-    #for now only use some hardcoded generic dists
-    backbone_dists = {
-        ("n", "hn") : 0.980,
-        ("n", "ca") : 1.458,
-        ("ca", "ha") : 1.080,
-        ("ca", "c") : 1.525,
-        ("c", "o") : 1.231 #oxygen on carbon backbone, does not appear in .prot file
-    }
+#     #for now only use some hardcoded generic dists
+#     backbone_dists = {
+#         ("n", "hn") : 0.980,
+#         ("n", "ca") : 1.458,
+#         ("ca", "ha") : 1.080,
+#         ("ca", "c") : 1.525,
+#         ("c", "o") : 1.231 #oxygen on carbon backbone, does not appear in .prot file
+#     }
 
-    atom_dists : PairAssignment = dict()
+#     atom_dists : PairAssignment = dict()
 
-    #systematically does not att C_id and O
-    for res_id, residue in atoms.items():
-        for (a1, a2) in backbone_dists.keys():
-            #check for each known distance pair if it is in this residue
-            a1_spec = f"{a1}_{res_id}"
-            a2_spec = f"{a2}_{res_id}"
+#     #systematically does not att C_id and O
+#     for res_id, residue in atoms.items():
+#         for (a1, a2) in backbone_dists.keys():
+#             #check for each known distance pair if it is in this residue
+#             a1_spec = f"{a1}_{res_id}"
+#             a2_spec = f"{a2}_{res_id}"
 
-            if a1_spec in residue and a2_spec in residue: 
-                atom_dists[(a1_spec, a2_spec)] = backbone_dists[(a1, a2)]
+#             if a1_spec in residue and a2_spec in residue: 
+#                 atom_dists[(a1_spec, a2_spec)] = backbone_dists[(a1, a2)]
             
-    return atom_dists
+#     return atom_dists
 
-def write_data(atoms: AtomsByRes, rhos: TripletAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
+def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
         #define atoms set

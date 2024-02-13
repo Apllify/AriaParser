@@ -16,18 +16,14 @@ if __name__ == "__main__":
     with open(args.par_file, "r") as stream : 
         par_content = stream.read()
    
-
     cov_lengths, angle_lengths = aria_parser.parse_par(par_content)
-    # pprint(cov_lengths)
-    # pprint(angle_lengths)
-    # print(set(angle_lengths.keys()) - set(cov_lengths.keys()) )
+    #pprint(angle_lengths)
 
-     
     #TOP parse
     with open(args.top_file, "r") as stream:
         top_content = stream.read()
     res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
-    pprint(res_info_dict)
+    #pprint(res_info_dict["MET"])
 
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
@@ -43,7 +39,7 @@ if __name__ == "__main__":
     #store NOE measurements with the associated atoms
     noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_atom)
 
-    cov_dists = aria_parser.compute_dists(atom_set, dict())
+    #cov_dists = aria_parser.compute_dists(atom_set, dict())
     ##pprint(cov_dists)
 
     
