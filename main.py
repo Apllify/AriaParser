@@ -32,7 +32,7 @@ if __name__ == "__main__":
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
-    chem_shift_to_atom, atom_set = aria_parser.parse_prot(prot_content, res_info_dict)
+    chem_shift_to_atom, atom_set, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
     #print(f'ASP: {res_info_dict["ASP"]}')
 
 

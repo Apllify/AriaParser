@@ -6,6 +6,7 @@ Atom = str #  ID of the form ATOMTYPE_RESNUM
 
 ChemShiftToAtom = dict[tuple[float, float], Atom]
 AtomsByRes = dict[int, set[Atom]] #atoms by residue
+ResIdToAA = dict[int, str]
 
 PairAssignment = dict[ tuple[Atom, Atom], float ]
 TripletAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
@@ -23,7 +24,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes]:
+def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
