@@ -28,8 +28,8 @@ if __name__ == "__main__":
     #PROT PARSE
     with open(args.prot_file, "r") as stream : 
         prot_content = stream.read()
-    chem_shift_to_atom, atom_set, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
-    #print(f'ASP: {res_info_dict["ASP"]}')
+    chem_shift_to_atom, atom_set, res_id_to_AA, cov_dists = aria_parser.parse_prot(prot_content, res_info_dict)
+    pprint(cov_dists)
 
 
     #PEAKS PARSE
@@ -40,11 +40,12 @@ if __name__ == "__main__":
     noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_atom)
 
     #cov_dists = aria_parser.compute_dists(atom_set, dict())
+    #cov_dists = aria_parser.compute_dists(atom_set, dict())
     ##pprint(cov_dists)
 
     
     #write out our results
-    #aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.txt")
+    aria_parser.write_data(atom_set, noe_assign, cov_dists, "test_file.dat")
 
 
 

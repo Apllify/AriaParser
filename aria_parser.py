@@ -15,7 +15,7 @@ TripletAssignment = dict[ tuple[Atom, Atom, Atom], float]
 NOEAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
 
 
-ResInfo = tuple[set[Atom],   PairAssignment,  PairAssignment] 
+ResInfo = tuple[set[Atom], list,  PairAssignment,  PairAssignment] 
 #              (res_content, res_cov_lengths, res_angle_lengths)
 ResInfoDict = dict[str, ResInfo]
 
@@ -27,7 +27,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA]:
+def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA, PairAssignment]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -37,9 +37,10 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
     chem_shift_to_atom = dict()
     atom_set = dict()
     res_id_to_AA = dict()
+    cov_dists = dict()
 
     lines = content.split("\n")
-    last_res_id = 1
+    last_res_id = -1
 
     seq = set() #atom sequence of current residue
     AA_name = ""
@@ -80,9 +81,17 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
             res_id_to_AA[last_res_id] = AA_name
-
+            atom_set[last_res_id].add(f'O_{last_res_id}')
+            cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
-            atom_set[res_id].add(f'O_{res_id}')
+            if AA_name != "XAA" and AA_name != "CYS/SER": 
+                _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
+                for a in non_hydrogens:
+                    seq.add(a)
+                    atom_set[last_res_id].add(f'{a}_{last_res_id}')
+                for (a1, a2),lenght in bonds.items():
+                    if {a1, a2} <= seq:
+                        cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
             last_res_id = res_id
             seq = set()
             hydrogen_counter = 0
@@ -90,21 +99,39 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         #pseudo-atoms don't count for residue content
         if "Q" in atom_type:
             hydrogen_counter = 0
-            group_id = ""
-            continue
-       
         #some atom names need to be tweaked to match .top format
         elif atom_type[-1].isdigit() and atom_type[0] == "H" and f'C{atom_type[1:]}' not in seq and f'N{atom_type[1:]}' not in seq:
             hydrogen_counter += 1
-            seq.add(f'{atom_type[:-1]}{hydrogen_counter}')
-            continue
+            atom_type = f'{atom_type[:-1]}{hydrogen_counter}'
+            seq.add(atom_type)
         else:
             hydrogen_counter = 0
             seq.add(atom_type)
-            continue
         
-        
-    return (chem_shift_to_atom, atom_set, res_id_to_AA)
+        atom_name = f'{atom_type}_{res_id}'
+        #remember this atom's name and ID for later
+        if atom_set.get(res_id) : 
+            atom_set[res_id].add(atom_name)
+        else : 
+            atom_set[res_id] = {atom_name}
+
+        #also store the chem shift of atom if it is well defined
+        if chem_shift != 999: 
+            chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
+
+
+ 
+    AA_name = match_AA(seq, res_info_dict)
+    if AA_name != "XAA" and AA_name != "CYS/SER": 
+        _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
+        for a in non_hydrogens:
+            atom_set[res_id].add(f'{a}_{last_res_id}')
+        for (a1, a2),lenght in bonds.items():
+            if {a1, a2} <= seq:
+                cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
+            else: print(a1, a2)
+            
+    return (chem_shift_to_atom, atom_set, res_id_to_AA, cov_dists)
 
 def atoms_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> list[Atom] : 
     """
@@ -138,14 +165,13 @@ def atoms_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -
 
 def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
     """
-    Tries to find the amino acid which most closely
-    matches the given atom set.
+    Tries to find the amino acid which corresponding to resiude.
     
-    Returns "???" if no match found
+    Returns "XAA" if no match found
     """
-    for name, (seq, _, _) in res_info_dict.items():
+    for name, (seq,_, _, _) in res_info_dict.items():
         if seq == atoms:
-           #special case since CYS and SER have same composition
+           #special case since CYS and SER share same composition when removing hydrogens
             if name in ("CYS", "SER"):
                return "CYS/SER" 
            
@@ -157,7 +183,7 @@ def match_AA(atoms: set[Atom], res_info_dict: ResInfoDict) -> str:
     if atoms - {"HD1"} == res_info_dict["ASP"][0]: return "ASP"
     if {"NE", "NH1", "NH2"} <= atoms: return "ARG"
 
-    return "???"
+    return "XAA"
     
 def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssignment:
     """
@@ -297,6 +323,7 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
     res_angle_lengths : PairAssignment = dict()
 
     res_atom_to_type = dict() #doesn't appear in output
+    non_hydrogens = []
 
 
     for line in content.split('\n'):
@@ -314,8 +341,6 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
             if res_name == "ACE": 
                 break #rest of file is irrelevant 
 
-
-
         #only process commands within a residue
         if inside_res : 
             match opcode:
@@ -325,6 +350,8 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
 
                     if name[0] not in ("O", "S"): 
                         res_atoms.add(name)
+                    else:
+                        non_hydrogens.append(name)
                     res_atom_to_type[name] = type[5:]
                 
                 case "BOND":
@@ -385,11 +412,12 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
 
 
                     #add our new entry and reset variables
-                    res_info_dict[res_name] = (res_atoms, res_cov_lengths, res_angle_lengths)
+                    res_info_dict[res_name] = (res_atoms, non_hydrogens, res_cov_lengths, res_angle_lengths)
 
                     inside_res = False
                     res_name = ""
                     res_atoms = set()
+                    non_hydrogens = []
 
                     res_cov_lengths = dict()
                     res_angle_lengths = dict()
@@ -445,25 +473,35 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
         for a1, a2 in cov_dists.keys(): outfile.write(f' {a1} {a2}')
         outfile.write(";\n")
 
-        #define distance set
-        outfile.write("set DISTS := ")
-        for _, a1, a2, _ in rhos: outfile.write(f' {a1} {a2}')
-        outfile.write(";\n")
-
         #define RHOS set
-        outfile.write("set RHOS := ")
-        for a1, a2, a3, _ in rhos: outfile.write(f' {a1} {a2} {a3}')
-        outfile.write(";\n")
+        num_rhos = len(rhos)
+        outfile.write(f'param numRHOS := {num_rhos};\n')
 
+        #define NOE_A1 and A_2 sets:
+        i = 1
+        for _, Iq, Ir, rho in rhos:
+            outfile.write(f'set NOE_A1[{i}] := ')
+            for a in Iq:
+                outfile.write(f'{a} ')
+            outfile.write(";\n")
+            outfile.write(f'set NOE_A2[{i}] := ')
+            for a in Ir:
+                outfile.write(f'{a} ')
+            outfile.write(";\n")
+            i += 1
         #give covalent distance data
         outfile.write("param  CovDists := ")
         for (a1, a2), dist in cov_dists.items(): outfile.write(f' {a1} {a2} {dist}')
         outfile.write(";\n")
 
         #give RHO data
+        i = 1
         outfile.write("param rho := ")
-        for a1, a2, a3, chemshift in rhos: outfile.write(f' {a1} {a2} {a3} {chemshift}')
+        for _, _, _, rho in rhos:
+            outfile.write(f'{i} {rho} ')
+            i += 1
         outfile.write(";\n")
+
 
 
 
