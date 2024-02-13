@@ -89,22 +89,20 @@ def parse_output(content : str) -> tuple[list, list, list]:
 #PAR PARSE
 with open("data/aria.par", "r") as stream : 
    par_content = stream.read()
-d1_assign, _ = aria_parser.parse_par(par_content)
+cov_lengths, angle_lengths = aria_parser.parse_par(par_content)
 
 #TOP parse
 with open("data/aria.top", "r") as stream:
    top_content = stream.read()
-res_info_dict = aria_parser.parse_top(top_content, d1_assign)
+res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
 
 #PROT PARSE
 with open("data/hmqcnoe.prot", "r") as stream : 
    prot_content = stream.read()
 #get atoms with 999 shift as well, hence the variable full_atom_set
-chem_shift_to_atom, full_atom_set = aria_parser.parse_prot(prot_content, res_info_dict, full_atom_set=1)
-res_to_names = {k:{x.split('_')[0] for x in v} for (k, v) in full_atom_set.items()}
-print(res_to_names)
+_, _, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
 
 with open("model_output.txt", "r") as stream: 
    model_output = stream.read()
 atom_names, atom_ress, Xs = parse_output(model_output)
-save_coordinates_pdb_format("output.pdb", "PDB_ID", "CHAIN_NAME", [str(aria_parser.match_AA(res_to_names[res], res_info_dict)) for res in atom_ress], atom_ress, atom_names, np.array(Xs), "METHOD")
+save_coordinates_pdb_format("output.pdb", "PDB_ID", "CHAIN_NAME", [res_id_to_AA[res] for res in atom_ress], atom_ress, atom_names, np.array(Xs), "METHOD")

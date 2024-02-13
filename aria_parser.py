@@ -23,7 +23,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, res_info_dict : ResInfoDict, full_atom_set = 0) -> tuple[ChemShiftToAtom, AtomsByRes]:
+def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -32,6 +32,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict, full_atom_set = 0) ->
 
     chem_shift_to_atom = dict()
     atom_set = dict()
+    res_id_to_AA = dict()
 
     lines = content.split("\n")
     last_res_id = 1
@@ -67,13 +68,14 @@ def parse_prot(content : str, res_info_dict : ResInfoDict, full_atom_set = 0) ->
             atom_set[res_id] = {atom_name}
 
         #also store the chem shift of atom if it is well defined
-        if chem_shift != 999 and not full_atom_set: 
+        if chem_shift != 999: 
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
 
 
         #check if we just switched to a new residue
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
+            res_id_to_AA[res_id] = AA_name
 
             
             atom_set[res_id].add(f'O_{res_id}')
@@ -96,7 +98,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict, full_atom_set = 0) ->
             continue
         
         
-    return (chem_shift_to_atom, atom_set)
+    return (chem_shift_to_atom, atom_set, res_id_to_AA)
 
 def atoms_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> list[Atom] : 
     """
