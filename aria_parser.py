@@ -53,7 +53,6 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         if line == "" or line[0] == "!" or len(terms) != 5 : 
             continue
 
-
         #get all info from current line
         try : 
             id = int(terms[0])
@@ -64,6 +63,9 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             res_id = int(terms[4])
         except : 
             continue
+
+        if last_res_id == -1:
+            last_res_id = res_id
 
         #remember this atom's name and ID for later
         atom_name =  f"{atom_type.upper()}_{res_id}"
@@ -80,11 +82,13 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         #find our AA if we just switch to a new residue
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
-            res_id_to_AA[last_res_id] = AA_name
+
+            if AA_name == "CYS/SER": res_id_to_AA[last_res_id] = "XAA"
+            else: res_id_to_AA[last_res_id] = AA_name
             atom_set[last_res_id].add(f'O_{last_res_id}')
             cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
-            if AA_name != "XAA" and AA_name != "CYS/SER": 
+            if AA_name != "XAA": 
                 _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
                 for a in non_hydrogens:
                     seq.add(a)
@@ -122,7 +126,9 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
-    if AA_name != "XAA" and AA_name != "CYS/SER": 
+    if AA_name == "CYS/SER": res_id_to_AA[last_res_id] = "XAA"        
+    else: res_id_to_AA[last_res_id] = AA_name
+    if AA_name != "XAA": 
         _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
         for a in non_hydrogens:
             atom_set[res_id].add(f'{a}_{last_res_id}')
@@ -423,8 +429,12 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
                     res_angle_lengths = dict()
 
                     res_atom_to_type = dict()
+        
+        if res_info_dict.get("SER") and res_info_dict.get("CYS"):
+            a_ser, _, cov_ser, ang_ser = res_info_dict["SER"]
+            a_cys, _, cov_cys, ang_cys = res_info_dict["SER"]
 
-
+            res_info_dict["CYS/SER"] = (a_ser & a_cys, [], dict(cov_ser.items() & cov_cys.items()),  dict(ang_ser.items() & ang_cys.items()))
     return res_info_dict
            
 
