@@ -92,11 +92,24 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
             if AA_name != "XAA": 
+<<<<<<< HEAD
                 non_hydrogens = res_info_dict[AA_name][1]
                 for a in non_hydrogens:
                     seq.add(a)
                     atom_set[last_res_id].add(f'{a}_{last_res_id}')
 
+=======
+                _, non_hydrogens, bonds, angles = res_info_dict[AA_name]
+                for a in non_hydrogens:
+                    seq.add(a)
+                    atom_set[last_res_id].add(f'{a}_{last_res_id}')
+                for (a1, a2),lenght in bonds.items():
+                    if {a1, a2} <= seq:
+                        cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
+                for (a1, a2),lenght in angles.items():
+                    if {a1, a2} <= seq:
+                        cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
+>>>>>>> 477868bd5e2371c05f24940438bcaa50b6e29d72
             last_res_id = res_id
             seq = set()
             hydrogen_counter = 0
@@ -127,13 +140,25 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
-    if AA_name == "CYS/SER": res_id_to_AA[last_res_id] = "XAA"        
-    else: res_id_to_AA[last_res_id] = AA_name
+    if AA_name == "CYS/SER": res_id_to_AA[res_id] = "XAA"        
+    else: res_id_to_AA[res_id] = AA_name
     if AA_name != "XAA": 
+<<<<<<< HEAD
         non_hydrogens = res_info_dict[AA_name][1]
         for a in non_hydrogens:
             atom_set[res_id].add(f'{a}_{last_res_id}')
 
+=======
+        _, non_hydrogens, bonds, angles = res_info_dict[AA_name]
+        for a in non_hydrogens:
+            atom_set[res_id].add(f'{a}_{res_id}')
+        for (a1, a2),lenght in bonds.items():
+            if {a1, a2} <= seq:
+                cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{res_id}')] = lenght
+        for (a1, a2),lenght in angles.items():
+            if {a1, a2} <= seq:
+                cov_dists[(f'{a1}_{res_id}', f'{a2}_{res_id}')] = lenght
+>>>>>>> 477868bd5e2371c05f24940438bcaa50b6e29d72
             
     return (chem_shift_to_atom, atom_set, res_id_to_AA)
 
