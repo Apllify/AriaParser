@@ -37,7 +37,6 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
     chem_shift_to_atom = dict()
     atom_set = dict()
     res_id_to_AA = dict()
-    cov_dists = dict()
 
     lines = content.split("\n")
     last_res_id = -1
@@ -199,9 +198,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssig
     lines = content.split("\n")
     #Assignmnet of rho to corresponding atoms follows scheme detailed in README.txt
     triplet_assignment : NOEAssignment = []
-    triplets = []
-    unbound_carbon_triplet = []
-    hydrogen_pairs = dict()
+
 
     for line in lines : 
         #ignore comments
