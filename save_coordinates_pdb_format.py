@@ -100,9 +100,16 @@ res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
 with open("data/hmqcnoe.prot", "r") as stream : 
    prot_content = stream.read()
 #get atoms with 999 shift as well, hence the variable full_atom_set
-_, _, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
+_, _, res_id_to_AA, _ = aria_parser.parse_prot(prot_content, res_info_dict)
 
 with open("model_output.txt", "r") as stream: 
    model_output = stream.read()
 atom_names, atom_ress, Xs = parse_output(model_output)
-save_coordinates_pdb_format("output.pdb", "PDB_ID", "CHAIN_NAME", [res_id_to_AA[res] for res in atom_ress], atom_ress, atom_names, np.array(Xs), "METHOD")
+AAs = [res_id_to_AA[res] for res in atom_ress]
+
+# sort according to residue number
+zipped = zip(AAs, atom_ress, atom_names, Xs)
+zipped = sorted(zipped, key=lambda pair: pair[1])
+AAs, atom_ress, atom_names, Xs = map(list, zip(*zipped))
+
+save_coordinates_pdb_format("output.pdb", "PDB_ID", "CHAIN_NAME", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
