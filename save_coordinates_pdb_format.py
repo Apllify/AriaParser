@@ -100,7 +100,7 @@ res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
 with open("data/hmqcnoe.prot", "r") as stream : 
    prot_content = stream.read()
 #get atoms with 999 shift as well, hence the variable full_atom_set
-_, _, res_id_to_AA, _ = aria_parser.parse_prot(prot_content, res_info_dict)
+_, _, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
 
 with open("model_output.txt", "r") as stream: 
    model_output = stream.read()
