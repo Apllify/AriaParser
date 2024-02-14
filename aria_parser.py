@@ -15,8 +15,8 @@ TripletAssignment = dict[ tuple[Atom, Atom, Atom], float]
 NOEAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
 
 
-ResInfo = tuple[set[Atom], list,  PairAssignment,  PairAssignment] 
-#              (res_content, res_cov_lengths, res_angle_lengths)
+ResInfo = tuple[set[Atom], set[Atom],  PairAssignment,  PairAssignment] 
+#        (res_content, nonhydrogen_content, res_cov_lengths, res_angle_lengths)
 ResInfoDict = dict[str, ResInfo]
 
 
@@ -27,7 +27,7 @@ CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
 
-def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA, PairAssignment]:
+def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
@@ -83,19 +83,20 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         if last_res_id != res_id:
             AA_name = match_AA(seq, res_info_dict)
 
-            if AA_name == "CYS/SER": res_id_to_AA[last_res_id] = "XAA"
-            else: res_id_to_AA[last_res_id] = AA_name
+            if AA_name == "CYS/SER": 
+                res_id_to_AA[last_res_id] = "XAA"
+            else: 
+                res_id_to_AA[last_res_id] = AA_name
+
             atom_set[last_res_id].add(f'O_{last_res_id}')
-            cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
+            #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
             if AA_name != "XAA": 
-                _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
+                non_hydrogens = res_info_dict[AA_name][1]
                 for a in non_hydrogens:
                     seq.add(a)
                     atom_set[last_res_id].add(f'{a}_{last_res_id}')
-                for (a1, a2),lenght in bonds.items():
-                    if {a1, a2} <= seq:
-                        cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
+
             last_res_id = res_id
             seq = set()
             hydrogen_counter = 0
@@ -129,15 +130,12 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
     if AA_name == "CYS/SER": res_id_to_AA[last_res_id] = "XAA"        
     else: res_id_to_AA[last_res_id] = AA_name
     if AA_name != "XAA": 
-        _, non_hydrogens, bonds, _ = res_info_dict[AA_name]
+        non_hydrogens = res_info_dict[AA_name][1]
         for a in non_hydrogens:
             atom_set[res_id].add(f'{a}_{last_res_id}')
-        for (a1, a2),lenght in bonds.items():
-            if {a1, a2} <= seq:
-                cov_dists[(f'{a1}_{last_res_id}', f'{a2}_{last_res_id}')] = lenght
-            else: print(a1, a2)
+
             
-    return (chem_shift_to_atom, atom_set, res_id_to_AA, cov_dists)
+    return (chem_shift_to_atom, atom_set, res_id_to_AA)
 
 def atoms_from_shift(chem_shift : float, chem_shift_to_atom : ChemShiftToAtom) -> list[Atom] : 
     """
@@ -329,7 +327,7 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
     res_angle_lengths : PairAssignment = dict()
 
     res_atom_to_type = dict() #doesn't appear in output
-    non_hydrogens = []
+    non_hydrogens = set()
 
 
     for line in content.split('\n'):
@@ -354,10 +352,11 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
                 case "ATOM":
                     name, type= terms[1], terms[2]
 
+                    #keep two diff running lists of atoms
                     if name[0] not in ("O", "S"): 
                         res_atoms.add(name)
                     else:
-                        non_hydrogens.append(name)
+                        non_hydrogens.add(name)
                     res_atom_to_type[name] = type[5:]
                 
                 case "BOND":
@@ -423,50 +422,63 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
                     inside_res = False
                     res_name = ""
                     res_atoms = set()
-                    non_hydrogens = []
+                    non_hydrogens = set()
 
                     res_cov_lengths = dict()
                     res_angle_lengths = dict()
 
                     res_atom_to_type = dict()
         
+        #merge CYS and SER information
         if res_info_dict.get("SER") and res_info_dict.get("CYS"):
             a_ser, _, cov_ser, ang_ser = res_info_dict["SER"]
             a_cys, _, cov_cys, ang_cys = res_info_dict["SER"]
 
             res_info_dict["CYS/SER"] = (a_ser & a_cys, [], dict(cov_ser.items() & cov_cys.items()),  dict(ang_ser.items() & ang_cys.items()))
+    
     return res_info_dict
            
 
-# def compute_dists(atoms : AtomsByRes, generic_dists : PairAssignment) -> PairAssignment :
-#     """
-#     Uses the generic covalent bond distances 
-#     obtained from the .par file to find all the
-#     distances applicable to our atoms set
-#     """
-    
-#     #for now only use some hardcoded generic dists
-#     backbone_dists = {
-#         ("n", "hn") : 0.980,
-#         ("n", "ca") : 1.458,
-#         ("ca", "ha") : 1.080,
-#         ("ca", "c") : 1.525,
-#         ("c", "o") : 1.231 #oxygen on carbon backbone, does not appear in .prot file
-#     }
+def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : ResIdToAA) -> PairAssignment :
+    """
+    Uses the generic bond + angle distances 
+    obtained from the .par + .top file to find all the
+    distances applicable to our atoms set
 
-#     atom_dists : PairAssignment = dict()
+    For now, merges angle and bond lengths together 
+    (might be changed later)
+    """
 
-#     #systematically does not att C_id and O
-#     for res_id, residue in atoms.items():
-#         for (a1, a2) in backbone_dists.keys():
-#             #check for each known distance pair if it is in this residue
-#             a1_spec = f"{a1}_{res_id}"
-#             a2_spec = f"{a2}_{res_id}"
 
-#             if a1_spec in residue and a2_spec in residue: 
-#                 atom_dists[(a1_spec, a2_spec)] = backbone_dists[(a1, a2)]
+    atom_dists : PairAssignment = dict()
+    last_res_id = -10
+
+    #proceed by residue
+    for res_id, residue in atoms.items():
+        
+        cur_AA = res_id_to_AA[res_id]
+        
+        #ignore unkonwn residue types
+        if cur_AA == "XAA":
+            continue
+
+        #hard-coded length of peptide bond
+        if (res_id - last_res_id) == 1: 
+            atom_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 
+
+        #go through all angle + bond lengths
+        _, _, cov_lengths, ang_lengths = res_info[cur_AA]
+        for (a1, a2), length in (ang_lengths.items() | cov_lengths.items())   :
+            a1_spec = f"{a1}_{res_id}"
+            a2_spec = f"{a2}_{res_id}"
+
+            if {a1_spec, a2_spec} <= residue : 
+                atom_dists[(a1_spec, a2_spec)] = length
+
+        last_res_id = res_id
+
             
-#     return atom_dists
+    return atom_dists
 
 def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
 
