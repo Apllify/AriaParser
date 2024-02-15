@@ -436,18 +436,18 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
     return res_info_dict
            
 
-def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : ResIdToAA) -> PairAssignment :
+def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : ResIdToAA) -> tuple[PairAssignment, PairAssignment] :
     """
     Uses the generic bond + angle distances 
     obtained from the .par + .top file to find all the
     distances applicable to our atoms set
 
-    For now, merges angle and bond lengths together 
-    (might be changed later)
+    Returns a tuple of the form (covalent_dists, angle_dists)
     """
 
 
-    atom_dists : PairAssignment = dict()
+    cov_dists : PairAssignment = dict()
+    ang_dists : PairAssignment = dict()
     last_res_id = -10
 
     #proceed by residue
@@ -461,23 +461,31 @@ def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : Res
 
         #hard-coded length of peptide bond
         if (res_id - last_res_id) == 1: 
-            atom_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 
+            cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 
 
         #go through all angle + bond lengths
         _, _, cov_lengths, ang_lengths = res_info[cur_AA]
-        for (a1, a2), length in (ang_lengths.items() | cov_lengths.items())   :
+        for (a1, a2), length in cov_lengths.items()  :
             a1_spec = f"{a1}_{res_id}"
             a2_spec = f"{a2}_{res_id}"
 
             if {a1_spec, a2_spec} <= residue : 
-                atom_dists[(a1_spec, a2_spec)] = length
+                cov_dists[(a1_spec, a2_spec)] = length
+
+        for (a1, a2), length in ang_lengths.items()    :
+            a1_spec = f"{a1}_{res_id}"
+            a2_spec = f"{a2}_{res_id}"
+
+            if {a1_spec, a2_spec} <= residue : 
+                ang_dists[(a1_spec, a2_spec)] = length
 
         last_res_id = res_id
-
             
-    return atom_dists
+    return (cov_dists, ang_dists)
 
-def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, filename = "NOE_data.dat"):
+
+
+def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, ang_dists : PairAssignment, filename = "NOE_data.dat"):
 
     with open(filename, "w") as outfile:
         #define atoms set
@@ -485,6 +493,11 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
         residues = atoms.values()
         for residue in residues : 
             for a in residue: outfile.write(f' {a}')
+        outfile.write(";\n")
+
+        #define angle distances set 
+        outfile.write("set ANGDISTS :=")
+        for a1, a2 in ang_dists.keys() : outfile.write(f" {a1} {a2}")
         outfile.write(";\n")
 
         #define covalent distances set
@@ -508,9 +521,15 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
                 outfile.write(f'{a} ')
             outfile.write(";\n")
             i += 1
+
         #give covalent distance data
         outfile.write("param  CovDists := ")
         for (a1, a2), dist in cov_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write(";\n")
+
+        #give angle distance data
+        outfile.write("param  AngDists := ")
+        for (a1, a2), dist in ang_dists.items(): outfile.write(f' {a1} {a2} {dist}')
         outfile.write(";\n")
 
         #give RHO data

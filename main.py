@@ -18,6 +18,7 @@ if __name__ == "__main__":
    
     cov_lengths, angle_lengths = aria_parser.parse_par(par_content)
 
+
     #TOP parse
     with open(args.top_file, "r") as stream:
         top_content = stream.read()
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     noe_assign = aria_parser.parse_peaks(peaks_content, chem_shift_to_atom)
 
     #now get all non-NOE distances
-    dist_assign = aria_parser.compute_dists(atom_set, res_info_dict, res_id_to_AA)
+    cov_assign, ang_assign = aria_parser.compute_dists(atom_set, res_info_dict, res_id_to_AA)
     
     #write out our results
-    aria_parser.write_data(atom_set, noe_assign, dist_assign, "test_file.dat")
+    aria_parser.write_data(atom_set, noe_assign, cov_assign, ang_assign, "test_file.dat")
