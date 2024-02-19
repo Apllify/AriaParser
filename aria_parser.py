@@ -90,8 +90,8 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             else: 
                 res_id_to_AA[last_res_id] = AA_name
 
-            if AA_name == "MET":
-                print(seq)
+            # if AA_name == "MET":
+            #     print(seq)
             atom_set[last_res_id].add(f'O_{last_res_id}')
             #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
