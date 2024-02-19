@@ -26,6 +26,7 @@ ResInfoDict = dict[str, ResInfo]
 CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
+##Ignore the Qs for now
 
 def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA]:
     """
@@ -67,12 +68,11 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             last_res_id = res_id
 
         #remember this atom's name and ID for later
-        atom_name =  f"{atom_type.upper()}_{res_id}"
-        if atom_set.get(res_id) : 
-            atom_set[res_id].add(atom_name)
-        else : 
-            atom_set[res_id] = {atom_name}
+        if atom_type[0] == "Q":
+            continue
 
+        atom_name =  f"{atom_type.upper()}_{res_id}"
+        
         #also store the chem shift of atom if it is well defined
         if chem_shift != 999: 
             chem_shift_to_atom[(chem_shift - err, chem_shift + err)] = atom_name
@@ -87,6 +87,8 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             else: 
                 res_id_to_AA[last_res_id] = AA_name
 
+            if AA_name == "MET":
+                print(seq)
             atom_set[last_res_id].add(f'O_{last_res_id}')
             #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
@@ -101,8 +103,9 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             hydrogen_counter = 0
         
         #pseudo-atoms don't count for residue content
-        if "Q" in atom_type:
+        if "Q" == atom_type[0]:
             hydrogen_counter = 0
+            continue
         #some atom names need to be tweaked to match .top format
         elif atom_type[-1].isdigit() and atom_type[0] == "H" and f'C{atom_type[1:]}' not in seq and f'N{atom_type[1:]}' not in seq:
             hydrogen_counter += 1
@@ -218,7 +221,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssig
         #ignore negative peaks
         if noe <= 0 : 
             continue
-
+        
         #ignore lines that don't have 3 unique atoms / have a zero atom
         uniques = set([chem1, chem2, chem3])
         if len(uniques) <= 2 or 0 in uniques : 
@@ -233,9 +236,9 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssig
         Ip = list(filter(lambda atom : atom[0] in "CN", Ip))
 
         #make sure only Hs and Qs are in Ip,Ir
-        Iq = list(filter(lambda atom : atom[0] in "HQ", Iq))
-        Ir = list(filter(lambda atom : atom[0] in "HQ", Ir))
-
+        Iq = list(filter(lambda atom : atom[0] == "H", Iq))
+        Ir = list(filter(lambda atom : atom[0] == "H", Ir))
+    
         #Check that each chemical shift correspnds to something
         if 0 in (len(Ip), len(Iq), len(Ir)):
             continue
@@ -303,8 +306,6 @@ def parse_par(content : str) -> tuple[PairAssignment, TripletAssignment]:
                 angle_assignment[pair_key] = dist
 
     return (bond_assignment, angle_assignment)
-
-
 
 def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : TripletAssignment) -> ResInfoDict :
     """
