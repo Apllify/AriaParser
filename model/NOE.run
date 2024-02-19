@@ -3,5 +3,5 @@ data test_file.dat;
 option solver baron;
 solve;
 display x > model_output.txt;
-display d2, sm, sp;
+#display d2, sm, sp;
 display ERROR;
