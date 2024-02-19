@@ -26,13 +26,14 @@ ResInfoDict = dict[str, ResInfo]
 CACHE_SIZE = 30
 lookup_cache = OrderedDict()
 
-##Ignore the Qs for now
 
 def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToAtom, AtomsByRes, ResIdToAA]:
     """
     Transforms a protein info file in to a dictionary
     which maps each chem shift interval : (LB, UB) to 
     a protein id 
+
+    Ignores all Q atoms for now
     """
 
     chem_shift_to_atom = dict()
@@ -67,7 +68,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
         if last_res_id == -1:
             last_res_id = res_id
 
-        #remember this atom's name and ID for later
+        #ignore Qs
         if atom_type[0] == "Q":
             continue
 
@@ -102,10 +103,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             seq = set()
             hydrogen_counter = 0
         
-        #pseudo-atoms don't count for residue content
-        if "Q" == atom_type[0]:
-            hydrogen_counter = 0
-            continue
+
         #some atom names need to be tweaked to match .top format
         elif atom_type[-1].isdigit() and atom_type[0] == "H" and f'C{atom_type[1:]}' not in seq and f'N{atom_type[1:]}' not in seq:
             hydrogen_counter += 1
@@ -129,8 +127,11 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
-    if AA_name == "CYS/SER": res_id_to_AA[res_id] = "XAA"        
-    else: res_id_to_AA[res_id] = AA_name
+    if AA_name == "CYS/SER": 
+        res_id_to_AA[res_id] = "XAA"        
+    else: 
+        res_id_to_AA[res_id] = AA_name
+
     if AA_name != "XAA": 
         non_hydrogens = res_info_dict[AA_name][1]
         for a in non_hydrogens:
@@ -540,13 +541,3 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
             outfile.write(f'{i} {rho} ')
             i += 1
         outfile.write(";\n")
-
-
-
-
-
-            
-
-
-
-
