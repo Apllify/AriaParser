@@ -1,6 +1,6 @@
 model model/NOE.mod;
 data test_file.dat;
-option solver baron;
+option solver conopt;
 solve;
 display x > model_output.txt;
 display d2, sm, sp;

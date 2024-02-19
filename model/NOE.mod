@@ -20,7 +20,7 @@ param CovDists{COVDISTS};
 #angle dists need more info to properly handle slack
 param AngDists{ANGDISTS};
 param d1d2{ANGDISTS};
-param SinAlpha{ANGDISTS}
+param SinAlpha{ANGDISTS};
 
 param rho{RHOS}; #rhos/peak volume from NOE-experiement
 
