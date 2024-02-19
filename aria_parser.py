@@ -12,10 +12,12 @@ ResIdToAA = dict[int, str]
 PairAssignment = dict[ tuple[Atom, Atom], float ]
 TripletAssignment = dict[ tuple[Atom, Atom, Atom], float]
 
+PairAngleAssignment = dict[ tuple[Atom, Atom], tuple[float, float, float]] 
+TripletAngleAssignment = dict[ tuple[Atom, Atom, Atom], tuple[float, float, float]] 
+
 NOEAssignment = list[ tuple[ list[Atom], list[Atom], list[Atom], float ] ]
 
-
-ResInfo = tuple[set[Atom], set[Atom],  PairAssignment,  PairAssignment] 
+ResInfo = tuple[set[Atom], set[Atom],  PairAssignment,  PairAngleAssignment] 
 #        (res_content, nonhydrogen_content, res_cov_lengths, res_angle_lengths)
 ResInfoDict = dict[str, ResInfo]
 
@@ -249,7 +251,7 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssig
 
     return triplet_assignment
 
-def parse_par(content : str) -> tuple[PairAssignment, TripletAssignment]: 
+def parse_par(content : str) -> tuple[PairAssignment, TripletAngleAssignment]: 
     """
     Parses the content of the .par file
     into a list of generic distances between atom types
@@ -260,7 +262,7 @@ def parse_par(content : str) -> tuple[PairAssignment, TripletAssignment]:
     """
 
     bond_assignment : PairAssignment = dict()
-    angle_assignment : TripletAssignment = dict()
+    angle_assignment : TripletAngleAssignment = dict()
 
     for line in content.split("\n") : 
 
@@ -300,15 +302,18 @@ def parse_par(content : str) -> tuple[PairAssignment, TripletAssignment]:
                 if d1 == None or d2 == None : 
                     continue
 
-                #compute and store the 3rd length
+                #compute and store length + extra info on this triplet
                 dist = math.sqrt( d1**2 + d2**2 - d1*d2*math.cos(math.radians(angle)) ) 
+                d1d2 = d1*d2
+                sin_alpha = math.sin(math.radians(angle))
+
                 pair_key = (m2, *sorted((m1, m3))) #anchor atom first
 
-                angle_assignment[pair_key] = dist
+                angle_assignment[pair_key] = (dist, d1d2, sin_alpha) #need a lot of info for model slack
 
     return (bond_assignment, angle_assignment)
 
-def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : TripletAssignment) -> ResInfoDict :
+def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : TripletAngleAssignment) -> ResInfoDict :
     """
     Parses the top file and finds the sequence and
     bond information for each amino acid.
@@ -323,7 +328,7 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
     res_name = ""
     res_atoms = set()
     res_cov_lengths : PairAssignment = dict()
-    res_angle_lengths : PairAssignment = dict()
+    res_angle_lengths : PairAngleAssignment = dict()
 
     res_atom_to_type = dict() #doesn't appear in output
     non_hydrogens = set()
@@ -409,11 +414,10 @@ def parse_top(content: str, cov_lengths: PairAssignment, angle_lengths : Triplet
 
 
                                 #store this length if applicable
-                                angle_length =angle_lengths.get(triplet_key)
-                                if angle_length != None :
+                                angle_info  =angle_lengths.get(triplet_key)
+                                if angle_info != None :
 
-                                    res_angle_lengths[(atom_i, atom_j)] = angle_length
-
+                                    res_angle_lengths[(atom_i, atom_j)] = angle_info
 
                     #add our new entry and reset variables
                     res_info_dict[res_name] = (res_atoms, non_hydrogens, res_cov_lengths, res_angle_lengths)
@@ -531,7 +535,13 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
 
         #give angle distance data
         outfile.write("param  AngDists := ")
-        for (a1, a2), dist in ang_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        for (a1, a2), (dist, _, _) in ang_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write(";\n")
+        outfile.write("param  d1d2 := ")
+        for (a1, a2), (_, d1d2, _) in ang_dists.items(): outfile.write(f' {a1} {a2} {d1d2}')
+        outfile.write(";\n")
+        outfile.write("param  SinAlpha := ")
+        for (a1, a2), (_, _, sin_alpha) in ang_dists.items(): outfile.write(f' {a1} {a2} {sin_alpha}')
         outfile.write(";\n")
 
         #give RHO data
