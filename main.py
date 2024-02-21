@@ -1,5 +1,6 @@
 import aria_parser
 import argparse
+import init_x
 
 from pprint import pprint # debugging
 
@@ -40,5 +41,7 @@ if __name__ == "__main__":
     #now get all non-NOE distances
     cov_assign, ang_assign = aria_parser.compute_dists(atom_set, res_info_dict, res_id_to_AA)
     
+    #initialize x values
+    atoms_to_initial_coord = init_x.initialize_x(atom_set, res_id_to_AA)
     #write out our results
-    aria_parser.write_data(atom_set, noe_assign, cov_assign, ang_assign, "test_file.dat")
+    aria_parser.write_data(atom_set, noe_assign, cov_assign, ang_assign, atoms_to_initial_coord, "test_file.dat")

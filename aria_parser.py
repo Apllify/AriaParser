@@ -70,6 +70,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
         #ignore Qs
         if atom_type[0] == "Q":
+            hydrogen_counter = 0
             continue
 
         atom_name =  f"{atom_type.upper()}_{res_id}"
@@ -127,6 +128,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
+    print(AA_name)
     if AA_name == "CYS/SER": 
         res_id_to_AA[res_id] = "XAA"        
     else: 
@@ -487,8 +489,7 @@ def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : Res
 
 
 
-def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, ang_dists : PairAssignment, filename = "NOE_data.dat"):
-
+def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, ang_dists : PairAssignment, atoms_to_initial_coord, filename = "NOE_data.dat"):
     with open(filename, "w") as outfile:
         #define atoms set
         outfile.write("set ATOMS := ")
@@ -541,3 +542,10 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
             outfile.write(f'{i} {rho} ')
             i += 1
         outfile.write(";\n")
+
+        #initialize x
+        DIM = 3
+        outfile.write(f"param init_x : {' '.join(map(str,[x+1 for x in range(DIM)]))} := \n")
+        for atom, coord in atoms_to_initial_coord.items():
+            print(atom, coord)
+            outfile.write(f"{atom} {coord[0]} {coord[1]} {coord[2]}\n")
