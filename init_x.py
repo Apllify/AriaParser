@@ -6,6 +6,7 @@ import numpy as np
 import RMSD
 
 def initialize_x(atom_set, res_id_to_AA, dim=3):
+    print(atom_set)
     #TOP parse
     aa_names = RMSD.get_aa_names_from_file("data/aria.top")
     residues = {x: [] for x in aa_names}
@@ -33,9 +34,9 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     # Find atom to coord mapping
     residues_atom_set = list(atom_set.values())
     maxCovDist = 2 # from aria.par
-    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2
+    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 10
     atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
-    for res_id, atoms in atom_set.items():
+    for res_id in atom_set:
         aa = res_id_to_AA[res_id]
         if aa not in residues:
             # already initialized to uniformly random values so we can skip
@@ -56,6 +57,8 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
                 residue_atoms[i].name = 'HN'
         residue_atoms = sorted(residue_atoms)
         for atom in residue_atoms:
-            atoms_to_coord[f'{atom.name}_{res_id}'] = atom.coord
+            if f'{atom.name}_{res_id}' in atoms_to_coord:
+                atoms_to_coord[f'{atom.name}_{res_id}'] = atom.coord
+    print(atoms_to_coord)
 
     return atoms_to_coord
