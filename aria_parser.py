@@ -89,8 +89,6 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             else: 
                 res_id_to_AA[last_res_id] = AA_name
 
-            if AA_name == "MET":
-                print(seq)
             atom_set[last_res_id].add(f'O_{last_res_id}')
             #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
@@ -102,6 +100,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
             last_res_id = res_id
             seq = set()
+            seq.add(atom_type)
             hydrogen_counter = 0
         
 
@@ -547,5 +546,4 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
         DIM = 3
         outfile.write(f"param init_x : {' '.join(map(str,[x+1 for x in range(DIM)]))} := \n")
         for atom, coord in atoms_to_initial_coord.items():
-            print(atom, coord)
             outfile.write(f"{atom} {coord[0]} {coord[1]} {coord[2]}\n")

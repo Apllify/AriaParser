@@ -32,9 +32,14 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     
     # Find atom to coord mapping
     residues_atom_set = list(atom_set.values())
-    atoms_to_coord = {atom: np.random.uniform(low=-3, high=3, size=dim) for residue in residues_atom_set for atom in residue}
+    maxCovDist = 2 # from aria.par
+    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2
+    atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
     for res_id, atoms in atom_set.items():
         aa = res_id_to_AA[res_id]
+        if aa not in residues:
+            # already initialized to uniformly random values so we can skip
+            continue
         residue = residues[aa][0]
         residue_atoms = [RMSD.Atom(atom.name, atom.coord) for atom in residue]
         residue_atoms = sorted(residue_atoms)
@@ -50,7 +55,6 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
             if residue_atoms[i].name == 'H':
                 residue_atoms[i].name = 'HN'
         residue_atoms = sorted(residue_atoms)
-        print(residue_atoms)
         for atom in residue_atoms:
             atoms_to_coord[f'{atom.name}_{res_id}'] = atom.coord
 
