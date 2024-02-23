@@ -1,5 +1,6 @@
 model model/NOE.mod;
-data test_file.dat;
+data model/NOE_generated.dat;
+let {a in ATOMS, d in DIM} x[a, d] := init_x[a, d]; # explicit initialization
 option solver baron;
 solve;
 display x > model_output.txt;

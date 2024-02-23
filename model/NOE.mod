@@ -28,7 +28,8 @@ param rho{RHOS}; #rhos/peak volume from NOE-experiement
 param maxCovDist := max{(u,v) in COVDISTS} CovDists[u,v];
 param M := card(ATOMS) * maxCovDist / 2;
 
-var x{ATOMS, DIM} >= -M, <= M, default Uniform(-M/10, M/10);
+param init_x{ATOMS, DIM};
+var x{ATOMS, DIM} >= -M, <= M;
 
 var sm{RHOS} >=0, default 0; #slack variable
 var sp{RHOS} >= 0, default 0; #slack variable

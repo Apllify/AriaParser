@@ -72,6 +72,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
         #ignore Qs
         if atom_type[0] == "Q":
+            hydrogen_counter = 0
             continue
 
         atom_name =  f"{atom_type.upper()}_{res_id}"
@@ -90,8 +91,6 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
             else: 
                 res_id_to_AA[last_res_id] = AA_name
 
-            # if AA_name == "MET":
-            #     print(seq)
             atom_set[last_res_id].add(f'O_{last_res_id}')
             #cov_dists[(f'C_{last_res_id}', f'N_{res_id}')] = 1.329 #lenght of peptide bond from aria.par
             
@@ -103,6 +102,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
             last_res_id = res_id
             seq = set()
+            seq.add(atom_type)
             hydrogen_counter = 0
         
 
@@ -129,6 +129,7 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
+    print(AA_name)
     if AA_name == "CYS/SER": 
         res_id_to_AA[res_id] = "XAA"        
     else: 
@@ -491,8 +492,7 @@ def compute_dists(atoms : AtomsByRes, res_info : ResInfoDict, res_id_to_AA : Res
 
 
 
-def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, ang_dists : PairAssignment, filename = "NOE_data.dat"):
-
+def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignment, ang_dists : PairAssignment, atoms_to_initial_coord, filename = "NOE_data.dat"):
     with open(filename, "w") as outfile:
         #define atoms set
         outfile.write("set ATOMS := ")
@@ -529,25 +529,31 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
             i += 1
 
         #give covalent distance data
-        outfile.write("param  CovDists := ")
-        for (a1, a2), dist in cov_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write("param  CovDists := \n")
+        for (a1, a2), dist in cov_dists.items(): outfile.write(f'\t{a1} {a2} {dist}\n')
         outfile.write(";\n")
 
         #give angle distance data
-        outfile.write("param  AngDists := ")
-        for (a1, a2), (dist, _, _) in ang_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write("param  AngDists := \n")
+        for (a1, a2), (dist, _, _) in ang_dists.items(): outfile.write(f'\t{a1} {a2} {dist}\n')
         outfile.write(";\n")
-        outfile.write("param  d1d2 := ")
-        for (a1, a2), (_, d1d2, _) in ang_dists.items(): outfile.write(f' {a1} {a2} {d1d2}')
+        outfile.write("param  d1d2 := \n")
+        for (a1, a2), (_, d1d2, _) in ang_dists.items(): outfile.write(f'\t{a1} {a2} {d1d2}\n')
         outfile.write(";\n")
-        outfile.write("param  SinAlpha := ")
-        for (a1, a2), (_, _, sin_alpha) in ang_dists.items(): outfile.write(f' {a1} {a2} {sin_alpha}')
+        outfile.write("param  SinAlpha := \n")
+        for (a1, a2), (_, _, sin_alpha) in ang_dists.items(): outfile.write(f'\t{a1} {a2} {sin_alpha}\n')
         outfile.write(";\n")
 
         #give RHO data
         i = 1
-        outfile.write("param rho := ")
+        outfile.write("param rho := \n")
         for _, _, _, rho in rhos:
-            outfile.write(f'{i} {rho} ')
+            outfile.write(f'\t{i} {rho}\n')
             i += 1
         outfile.write(";\n")
+
+        #initialize x
+        DIM = 3
+        outfile.write(f"param init_x : {' '.join(map(str,[x+1 for x in range(DIM)]))} := \n")
+        for atom, coord in atoms_to_initial_coord.items():
+            outfile.write(f"{atom} {coord[0]} {coord[1]} {coord[2]}\n")
