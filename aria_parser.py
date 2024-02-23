@@ -525,20 +525,20 @@ def write_data(atoms: AtomsByRes, rhos: NOEAssignment,  cov_dists: PairAssignmen
             i += 1
 
         #give covalent distance data
-        outfile.write("param  CovDists := ")
-        for (a1, a2), dist in cov_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write("param  CovDists := \n")
+        for (a1, a2), dist in cov_dists.items(): outfile.write(f'\t{a1} {a2} {dist}\n')
         outfile.write(";\n")
 
         #give angle distance data
-        outfile.write("param  AngDists := ")
-        for (a1, a2), dist in ang_dists.items(): outfile.write(f' {a1} {a2} {dist}')
+        outfile.write("param  AngDists := \n")
+        for (a1, a2), dist in ang_dists.items(): outfile.write(f'\t{a1} {a2} {dist}\n')
         outfile.write(";\n")
 
         #give RHO data
         i = 1
-        outfile.write("param rho := ")
+        outfile.write("param rho := \n")
         for _, _, _, rho in rhos:
-            outfile.write(f'{i} {rho} ')
+            outfile.write(f'\t{i} {rho}\n')
             i += 1
         outfile.write(";\n")
 

@@ -44,4 +44,4 @@ if __name__ == "__main__":
     #initialize x values
     atoms_to_initial_coord = init_x.initialize_x(atom_set, res_id_to_AA)
     #write out our results
-    aria_parser.write_data(atom_set, noe_assign, cov_assign, ang_assign, atoms_to_initial_coord, "test_file.dat")
+    aria_parser.write_data(atom_set, noe_assign, cov_assign, ang_assign, atoms_to_initial_coord, "model/NOE_generated.dat")
