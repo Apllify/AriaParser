@@ -6,7 +6,6 @@ import numpy as np
 import RMSD
 
 def initialize_x(atom_set, res_id_to_AA, dim=3):
-    print(atom_set)
     #TOP parse
     aa_names = RMSD.get_aa_names_from_file("data/aria.top")
     residues = {x: [] for x in aa_names}
@@ -59,6 +58,5 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         for atom in residue_atoms:
             if f'{atom.name}_{res_id}' in atoms_to_coord:
                 atoms_to_coord[f'{atom.name}_{res_id}'] = atom.coord
-    print(atoms_to_coord)
 
     return atoms_to_coord
