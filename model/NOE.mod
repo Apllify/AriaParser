@@ -16,7 +16,11 @@ set F{r in RHOS} := {a1 in NOE_A1[r], a2 in NOE_A2[r]};
 set FA := union{r in RHOS} F[r];
 
 param CovDists{COVDISTS}; 
+
+#angle dists need more info to properly handle slack
 param AngDists{ANGDISTS};
+param d1d2{ANGDISTS};
+param SinAlpha{ANGDISTS};
 
 param rho{RHOS}; #rhos/peak volume from NOE-experiement
 
@@ -35,7 +39,7 @@ var sp{RHOS} >= 0, default 0; #slack variable
 var d2{FA} >= 1, <= 36, default Uniform(1, 5); 
 
 ## slack variables on equations for angle bond distances
-param scovCoeff := 0.05; # obj fun coeff for covalent error term
+param scovCoeff := 2; # obj fun coeff for covalent error term
 var scov{ANGDISTS} default 0;
 
 minimize ERROR: 
@@ -53,8 +57,25 @@ subject to NOE_dists{(u,v) in FA}:
         sum{k in DIM} (x[u,k] - x[v,k])^2 = d2[u,v];
 subject to cov_dists {(u,v) in COVDISTS}:
         sum{k in DIM} (x[u,k] - x[v,k])^2 = CovDists[u,v]^2;
+
+### ONLY UNCOMMENT IF SCOV TREATED AS ANGLE
+subject to small_scov{(u, v) in ANGDISTS} : 
+        -4 * atan(1)<=scov[u,v]<=4 * atan(1);
+
+
+### NORMAL NAIVE SCOV VERSION
+# subject to ang_dists {(u,v) in ANGDISTS}:
+#         sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + scov[u, v];
+
+### TAYLOR EXPANSION VERSION
 subject to ang_dists {(u,v) in ANGDISTS}:
-        sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + scov[u,v];
+        sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + 
+                                            d1d2[u, v] * (SinAlpha[u, v] * (scov[u, v] - scov[u, v]^3/6) + scov[u, v]^2/2 - scov[u,v]^4/24); 
+
+### FULL VERBOSE VERSION
+# subject to ang_dists {(u,v) in ANGDISTS}:
+#         sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + 
+#                                             d1d2[u, v] * (SinAlpha[u, v] * sin(scov[u, v]) - cos(scov[u, v]) + 1);
 
 # zero centroid
 subject to Centroid {k in DIM}: 
