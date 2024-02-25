@@ -1,9 +1,11 @@
 import sys
 import Bio.PDB as PDB
+import Bio
 from os import listdir
 from os.path import isfile, join
 import numpy as np
 import RMSD
+import pylcs
 
 def initialize_x(atom_set, res_id_to_AA, dim=3):
     #TOP parse
@@ -35,6 +37,8 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     maxCovDist = 2 # from aria.par
     bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 10
     atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
+    visited = dict()
+    cur_pos = np.array([0,0,0])
     for res_id in atom_set:
         aa = res_id_to_AA[res_id]
         if aa not in residues:
@@ -55,8 +59,28 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
             if residue_atoms[i].name == 'H':
                 residue_atoms[i].name = 'HN'
         residue_atoms = sorted(residue_atoms)
+
+        while 1:
+            # let each residue occupies a random cube in space
+            # such that consecutive residue is adjacent
+            random_shift =  np.random.choice([-1,0,1], size=3, replace=True)
+            if tuple(cur_pos + random_shift) not in visited:
+                visited[tuple(cur_pos + random_shift)] = 1
+                cur_pos += random_shift
+                break
+
+        atom_coords = np.array([atom.coord for atom in residue_atoms if f'{atom.name}_{res_id}' in atoms_to_coord])
+        com = np.mean(atom_coords, axis=0)
+        # first normalization, so that each residue is at center
+        atom_coords_normalized = atom_coords - com
+        i = 0
+        RES_SIZE = 10 # changeable
         for atom in residue_atoms:
             if f'{atom.name}_{res_id}' in atoms_to_coord:
-                atoms_to_coord[f'{atom.name}_{res_id}'] = atom.coord
+                atoms_to_coord[f'{atom.name}_{res_id}'] = atom_coords_normalized[i] + cur_pos * RES_SIZE
+                i += 1
 
+    # final normalization
+    mean = np.mean(np.array(list(atoms_to_coord.values())), axis = 0)
+    atoms_to_coord = {key: val - mean for key, val in atoms_to_coord.items()}
     return atoms_to_coord
