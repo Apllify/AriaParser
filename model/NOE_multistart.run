@@ -1,0 +1,29 @@
+model model/NOE.mod;
+data model/NOE_generated.dat;
+
+option solver conopt;
+
+param iterations_count;
+param cur_min_error;
+
+let iterations_count := 10;
+let cur_min_error := Infinity;
+
+for {i in 1..iterations_count}{
+    printf "Iteration %d \n", i;
+
+    #randomize start positions
+    for {a in ATOMS, d in DIM} {
+        let x[a, d] := Uniform(-M, M); 
+    }
+
+    solve;
+
+    #check if we found a new best 
+    if (ERROR < cur_min_error) then {
+        let cur_min_error := ERROR;
+        display x > model_output.txt;
+    }
+}
+
+printf "Final error : %d \n", cur_min_error;
