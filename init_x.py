@@ -37,16 +37,13 @@ def rotate_molecule_to_vector(atom_positions, N_idx, C_idx, V):
     
     # Apply the rotation matrix to all atom positions
     rotated_positions = translated_positions @ rotation_matrix.T
-    # print(f'N new position: {rotated_positions[N_idx]}, C new position: {rotated_positions[C_idx]}, V: {V}')
     
     return rotated_positions
 
-# Example usage:
-# V = np.array([x, y, z])  # Your target vector
-# rotated_positions = rotate_molecule_to_vector(atom_positions, N_idx, C_idx, V)
-# print(rotated_positions)
-
 def initialize_x(atom_set, res_id_to_AA, dim=3):
+    """
+    Initialize positions according to amino acid internal positions from pdb files
+    """
     #TOP parse
     aa_names = RMSD.get_aa_names_from_file("data/aria.top")
     residues = {x: [] for x in aa_names}
@@ -71,7 +68,7 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         if count_aa_found == len(aa_names) * num_res:
             break
     
-    # Find atom to coord mapping
+    # Find atom to coordinate mapping
     residues_atom_set = list(atom_set.values())
     maxCovDist = 2 # from aria.par
     bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 10
@@ -80,8 +77,8 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     cur_pos = np.array([0,0,0])
     for res_id in atom_set:
         aa = res_id_to_AA[res_id]
+        # Already initialized to uniformly random values so we can skip
         if aa not in residues:
-            # already initialized to uniformly random values so we can skip
             continue
         residue = residues[aa][0]
         residue_atoms = [RMSD.Atom(atom.name, atom.coord) for atom in residue]
@@ -108,9 +105,9 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
             elif atom.name == 'N':
                 N_idx = i
 
+        # Let each residue occupies a random cube in space
+        # such that consecutive residue is adjacent
         while 1:
-            # let each residue occupies a random cube in space
-            # such that consecutive residue is adjacent
             random_V =  np.random.choice([-1,0,1], size=3, replace=True)
             if tuple(cur_pos + random_V) not in visited:
                 visited[tuple(cur_pos + random_V)] = 1
@@ -120,14 +117,94 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         atom_coords = np.array([atom.coord for atom in residue_atoms])
         rotated_atom_coords = rotate_molecule_to_vector(atom_coords, N_idx, C_idx, random_V)
         center = np.mean(rotated_atom_coords, axis=0)
-        # first normalization, so that each residue's center is at the origin point
-        normalize_atom_coords = rotated_atom_coords - center
+        # First normalization, so that each residue's center is at the origin point
+        normalized_atom_coords = rotated_atom_coords - center
 
         RES_SIZE = 5 # changeable
         for i, atom in enumerate(residue_atoms):
-            atoms_to_coord[f'{atom.name}_{res_id}'] = normalize_atom_coords[i] + cur_pos * RES_SIZE
+            atoms_to_coord[f'{atom.name}_{res_id}'] = normalized_atom_coords[i] + cur_pos * RES_SIZE
 
-    # final normalization
+    # Final normalization
     mean = np.mean(np.array(list(atoms_to_coord.values())), axis = 0)
     atoms_to_coord = {key: val - mean for key, val in atoms_to_coord.items()}
     return atoms_to_coord
+
+
+import pylcs
+def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
+    path = "data/pdb"
+    files = [f for f in listdir(path) if isfile(join(path, f))]
+    prot_ress = list(res_id_to_AA.values())
+    for i, x in enumerate(prot_ress):
+        if x == 'XAA':
+            print(i+1)
+    three_to_one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+     'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+     'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+     'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M', 'XAA' : 'C'}
+    one_to_three = {value: key for (key, value) in three_to_one.items()}
+    max_length = 0
+    prot_ress_one = [three_to_one[x] for x in prot_ress]
+    s_prot =  ''.join(prot_ress_one)
+    print(s_prot)
+    cys_ser_id = [x+1 for x in range(len(s_prot)) if s_prot[x] == 'X']
+    all_pdb_seqs = []
+    for file in files:
+        pdbparser = PDB.PDBParser(QUIET=True)   # suppress PDBConstructionWarning
+        struct = pdbparser.get_structure(file.split('.')[0], f"data/pdb/{file}")
+        for model in struct:
+            for chain in model:
+                print(chain.get_residues())
+        # read_seqres = 0
+        # seqress = []
+        # with open(f'{path}/{file}') as f:
+        #     while 1:
+        #         line = f.readline()
+        #         if not read_seqres and line[:6] == 'SEQRES':
+        #             read_seqres = 1
+        #         elif read_seqres and line[:6] != 'SEQRES':
+        #             read_seqres = 0
+        #             break
+        #         if read_seqres:
+        #             terms = line.split()
+        #             # ignore sequence that is not A
+        #             if terms[2] != 'A':
+        #                 continue
+        #             seqress += [x for x in terms[4:] if x[0] != 'D' and len(x) == 3]
+        # seqress_one = [three_to_one[x] if x in three_to_one else '0' for x in seqress]
+        # s_seq = ''.join (seqress_one)
+        # all_pdb_seqs.append(s_seq)
+    
+    # all_pdb_seqs = '\t'.join(all_pdb_seqs)
+    # print(len(all_pdb_seqs))
+    # print(len(s_prot))
+    # i = 0
+    # while 1:
+    #     broken = 0
+    #     seq_file = ""
+    #     for j in range(i+1, len(s_prot)+2):
+    #         for file_num, seq in enumerate(all_pdb_seqs):
+    #             if s_prot[i:j] in seq:
+    #                 seq_file = files[file_num]
+    #                 break
+    #         else:
+    #             break
+    #     print(i, j-1, seq_file)
+    #     i = j-1
+    #     if i == len(s_prot):
+    #         break
+
+    # # brute force all Cys/Ser
+    # for i in range(1<<6):
+    #     for k in range(6):
+    #         assert(s_prot[cys_ser_id[k] - 1] in ['X', 'C', 'S'])
+    #         if i & (1<<k):
+    #             s_prot = s_prot[:cys_ser_id[k]-1] + 'C' + s_prot[cys_ser_id[k]:]
+    #         else:
+    #             s_prot = s_prot[:cys_ser_id[k]-1] + 'S' + s_prot[cys_ser_id[k]:]
+    #         # print(s_prot)
+
+    # max_length = max(max_length, pylcs.lcs_string_length(s_prot, s_seq))
+    # print(pylcs.lcs_string_length(s_prot, s_seq), s_seq)
+    # break
+    print(max_length)
