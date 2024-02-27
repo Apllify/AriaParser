@@ -1,0 +1,50 @@
+model model/NOE.mod;
+data model/NOE_generated.dat;
+
+option solver conopt;
+
+param iterations_count;
+param cur_min_error;
+param x_old {ATOMS, DIM};
+
+let iterations_count := 10;
+
+#start with initial solution
+printf "Initial solve...\n";
+for {a in ATOMS, d in DIM} {
+    let x[a, d] := Uniform(-M, M); 
+}
+solve;
+let cur_min_error := ERROR;
+display x > model_output.txt;
+
+
+for {i in 1..iterations_count}{
+    printf "Iteration %d\n", i;
+
+    #store old solution
+    for {a in ATOMS, d in DIM}{
+        let x_old[a, d] := x[a, d];
+    }
+
+    #salt the old solution to get new one
+    for {a in ATOMS, d in DIM} {
+        let x[a, d] := x_old[a, d] + Uniform(-M/20.0, M/20.0); 
+    }
+
+    solve;
+
+    if (ERROR < cur_min_error) then {
+        #if new best, store results
+        let cur_min_error := ERROR;
+        display x > model_output.txt;
+    }
+    else{
+        #else, restore old position
+        for {a in ATOMS, d in DIM}{
+            let x[a, d] := x_old[a, d];
+        }
+    }
+}
+
+printf "Final error : %d \n", cur_min_error;
