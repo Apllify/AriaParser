@@ -71,7 +71,7 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     # Find atom to coordinate mapping
     residues_atom_set = list(atom_set.values())
     maxCovDist = 2 # from aria.par
-    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 10
+    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 60
     atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
     visited = dict()
     cur_pos = np.array([0,0,0])
@@ -129,8 +129,6 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     atoms_to_coord = {key: val - mean for key, val in atoms_to_coord.items()}
     return atoms_to_coord
 
-
-import pylcs
 def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
     path = "data/pdb"
     files = [f for f in listdir(path) if isfile(join(path, f))]
