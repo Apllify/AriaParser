@@ -6,6 +6,31 @@ from os.path import isfile, join
 import numpy as np
 import RMSD
 
+RES_SIZE = 5 # changeable
+# ASSUME ALL CYS/SER ARE CYS
+three_to_one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
+    'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
+    'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
+    'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M', 'XAA' : 'C'}
+one_to_three = {value: key for (key, value) in three_to_one.items()}
+
+def get_correct_atom_name(residue, res_id, atoms_to_coord):
+    residue_atoms = [RMSD.Atom(atom.name, atom.coord) for atom in residue]
+    residue_atoms = sorted(residue_atoms)
+    for i in range(len(residue_atoms)):
+        # Change all 2-3 hydrogen atoms to 1-2 hydrogen atoms
+        if i < len(residue_atoms)-2 \
+        and residue_atoms[i+1].name[0] == 'H' and residue_atoms[i+1].name[-1] == '2' \
+        and residue_atoms[i+2].name[0] == 'H' and residue_atoms[i+2].name[-1] == '3' \
+        and residue_atoms[i].name != residue_atoms[i+1].name[:-1] + '1':
+            residue_atoms[i+1].name = residue_atoms[i+1].name[:-1] + '1'
+            residue_atoms[i+2].name = residue_atoms[i+2].name[:-1] + '2'
+        # Change all H atoms to HN atoms
+        if residue_atoms[i].name == 'H':
+            residue_atoms[i].name = 'HN'
+        residue_atoms[i].name = f'{residue_atoms[i].name}_{res_id}'
+    return sorted([atom for atom in residue_atoms if atom.name in atoms_to_coord])
+
 def rotate_molecule_to_vector(atom_positions, N_idx, C_idx, V):
     # Translate the molecule so that N is at the origin
     N = atom_positions[N_idx]
@@ -80,29 +105,15 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         # Already initialized to uniformly random values so we can skip
         if aa not in residues:
             continue
-        residue = residues[aa][0]
-        residue_atoms = [RMSD.Atom(atom.name, atom.coord) for atom in residue]
-        residue_atoms = sorted(residue_atoms)
-        for i in range(len(residue_atoms)):
-            # Change all 2-3 hydrogen atoms to 1-2 hydrogen atoms
-            if i < len(residue_atoms)-2 \
-            and residue_atoms[i+1].name[0] == 'H' and residue_atoms[i+1].name[-1] == '2' \
-            and residue_atoms[i+2].name[0] == 'H' and residue_atoms[i+2].name[-1] == '3' \
-            and residue_atoms[i].name != residue_atoms[i+1].name[:-1] + '1':
-                residue_atoms[i+1].name = residue_atoms[i+1].name[:-1] + '1'
-                residue_atoms[i+2].name = residue_atoms[i+2].name[:-1] + '2'
-            # Change all H atoms to HN atoms
-            if residue_atoms[i].name == 'H':
-                residue_atoms[i].name = 'HN'
-        residue_atoms = sorted([atom for atom in residue_atoms if f'{atom.name}_{res_id}' in atoms_to_coord])
+        residue_atoms = get_correct_atom_name(residues[aa][0], res_id, atoms_to_coord)
 
         # Find C and N to align the molecule's C-N vector along a random vector
         C_idx = -1
         N_idx = -1
         for i, atom in enumerate(residue_atoms):
-            if atom.name == 'C':
+            if atom.name == f'C_{res_id}':
                 C_idx = i
-            elif atom.name == 'N':
+            elif atom.name == f'N_{res_id}':
                 N_idx = i
 
         # Let each residue occupies a random cube in space
@@ -120,77 +131,127 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         # First normalization, so that each residue's center is at the origin point
         normalized_atom_coords = rotated_atom_coords - center
 
-        RES_SIZE = 5 # changeable
         for i, atom in enumerate(residue_atoms):
-            atoms_to_coord[f'{atom.name}_{res_id}'] = normalized_atom_coords[i] + cur_pos * RES_SIZE
+            atoms_to_coord[f'{atom.name}'] = normalized_atom_coords[i] + cur_pos * RES_SIZE
 
     # Final normalization
     mean = np.mean(np.array(list(atoms_to_coord.values())), axis = 0)
     atoms_to_coord = {key: val - mean for key, val in atoms_to_coord.items()}
     return atoms_to_coord
 
-def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
+def get_condensed_pdb_file(res_id_to_AA):
+    all_pdb_seqs = []
     path = "data/pdb"
     files = [f for f in listdir(path) if isfile(join(path, f))]
-    prot_ress = list(res_id_to_AA.values())
-    for i, x in enumerate(prot_ress):
-        if x == 'XAA':
-            print(i+1)
-    three_to_one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
-     'ILE': 'I', 'PRO': 'P', 'THR': 'T', 'PHE': 'F', 'ASN': 'N', 
-     'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
-     'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M', 'XAA' : 'C'}
-    one_to_three = {value: key for (key, value) in three_to_one.items()}
-    max_length = 0
-    prot_ress_one = [three_to_one[x] for x in prot_ress]
-    s_prot =  ''.join(prot_ress_one)
-    print(s_prot)
-    cys_ser_id = [x+1 for x in range(len(s_prot)) if s_prot[x] == 'X']
-    all_pdb_seqs = []
     for file in files:
         pdbparser = PDB.PDBParser(QUIET=True)   # suppress PDBConstructionWarning
         struct = pdbparser.get_structure(file.split('.')[0], f"data/pdb/{file}")
+        pdb_seq = [file, ' ']
         for model in struct:
+            if model.id != 1:
+                continue
             for chain in model:
-                print(chain.get_residues())
-        # read_seqres = 0
-        # seqress = []
-        # with open(f'{path}/{file}') as f:
-        #     while 1:
-        #         line = f.readline()
-        #         if not read_seqres and line[:6] == 'SEQRES':
-        #             read_seqres = 1
-        #         elif read_seqres and line[:6] != 'SEQRES':
-        #             read_seqres = 0
-        #             break
-        #         if read_seqres:
-        #             terms = line.split()
-        #             # ignore sequence that is not A
-        #             if terms[2] != 'A':
-        #                 continue
-        #             seqress += [x for x in terms[4:] if x[0] != 'D' and len(x) == 3]
-        # seqress_one = [three_to_one[x] if x in three_to_one else '0' for x in seqress]
-        # s_seq = ''.join (seqress_one)
-        # all_pdb_seqs.append(s_seq)
+                # Only consider A chain
+                if chain.id != 'A':
+                    continue
+                for residue in chain.get_residues():
+                    if residue.get_resname() in three_to_one:
+                        pdb_seq.append(three_to_one[residue.get_resname()])
+        pdb_seq = ''.join(pdb_seq)
+        all_pdb_seqs.append(pdb_seq)
+    all_pdb_seqs = '\n'.join(all_pdb_seqs)
+    file = open('data/pdb_condensed.txt','w+')
+    file.write(all_pdb_seqs)
+
+def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
+    # Only generate file if not existing
+    if not isfile("data/pdb_condensed.txt"):
+        get_condensed_pdb_file(res_id_to_AA)
+
+    prot_ress = list(res_id_to_AA.values())
+    prot_ress_one = [three_to_one[x] for x in prot_ress]
+    s_prot =  ''.join(prot_ress_one)
+
+    with open('data/pdb_condensed.txt') as f:
+        lines = f.readlines()
+    files_seqs = []
+    for line in lines:
+        terms = line.split()
+        if len(terms) < 2:
+            continue
+        files_seqs.append((terms[0], terms[1]))
+    pdbparser = PDB.PDBParser(QUIET=True)   # suppress PDBConstructionWarning
     
-    # all_pdb_seqs = '\t'.join(all_pdb_seqs)
-    # print(len(all_pdb_seqs))
-    # print(len(s_prot))
-    # i = 0
-    # while 1:
-    #     broken = 0
-    #     seq_file = ""
-    #     for j in range(i+1, len(s_prot)+2):
-    #         for file_num, seq in enumerate(all_pdb_seqs):
-    #             if s_prot[i:j] in seq:
-    #                 seq_file = files[file_num]
-    #                 break
-    #         else:
-    #             break
-    #     print(i, j-1, seq_file)
-    #     i = j-1
-    #     if i == len(s_prot):
-    #         break
+    # Find atom to coordinate mapping
+    residues_atom_set = list(atom_set.values())
+    maxCovDist = 2 # from aria.par
+    bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 60
+    atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
+    visited = dict()
+    cur_pos = np.array([0,0,0])
+
+    i = 0
+    while i < len(s_prot):
+        file_with_seq = ""
+        pos = 0
+        for j in range(i+1, len(s_prot)+2):
+            for file_seq in files_seqs:
+                file, seq = file_seq
+                if seq.find(s_prot[i:j]) != -1:
+                    pos = seq.find(s_prot[i:j])
+                    file_with_seq = file
+                    break
+            else:
+                break
+        struct = pdbparser.get_structure(file.split('.')[0], f"data/pdb/{file_with_seq}")
+        for model in struct:
+            if model.id != 1:
+                continue
+            for chain in model:
+                if chain.id != 'A':
+                    continue
+                local_res_group = []
+                local_cnt = j-i-1
+                for res_id, residue in enumerate(chain):
+                    prot_res_id = res_id - pos + i + 1
+                    if prot_res_id >= i + 1 and prot_res_id < j:
+                        residue_atoms = get_correct_atom_name(residue, prot_res_id, atoms_to_coord)
+                        local_res_group += residue_atoms
+
+                atom_coords = np.array([atom.coord for atom in local_res_group])
+
+                # Find C and N to align the molecule's C-N vector along a random vector
+                C_idx = -1
+                N_idx = -1
+                for id, atom in enumerate(local_res_group):
+                    if atom.name == f'C_{i+1}':
+                        C_idx = id
+                    elif atom.name == f'N_{j-1}':
+                        N_idx = id
+
+                # Let each local residue group occupies a random cube in space
+                # such that consecutive residue is adjacent
+                while 1:
+                    random_V =  np.random.choice([-1,0,1], size=3, replace=True)
+                    if tuple(cur_pos + random_V) not in visited:
+                        visited[tuple(cur_pos + random_V)] = 1
+                        cur_pos += random_V
+                        break
+
+                atom_coords = np.array([atom.coord for atom in local_res_group])
+                rotated_atom_coords = rotate_molecule_to_vector(atom_coords, N_idx, C_idx, random_V)
+                center = np.mean(rotated_atom_coords, axis=0)
+                # First normalization, so that each residue's center is at the origin point
+                normalized_atom_coords = rotated_atom_coords - center
+  
+                for i, atom in enumerate(local_res_group):
+                    atoms_to_coord[atom.name] = normalized_atom_coords[i] + cur_pos * RES_SIZE
+        i = j-1
+
+    # Final normalization
+    mean = np.mean(np.array(list(atoms_to_coord.values())), axis = 0)
+    atoms_to_coord = {key: val - mean for key, val in atoms_to_coord.items()}
+    return atoms_to_coord
 
     # # brute force all Cys/Ser
     # for i in range(1<<6):
@@ -205,4 +266,3 @@ def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
     # max_length = max(max_length, pylcs.lcs_string_length(s_prot, s_seq))
     # print(pylcs.lcs_string_length(s_prot, s_seq), s_seq)
     # break
-    print(max_length)
