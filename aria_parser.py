@@ -246,7 +246,10 @@ def parse_peaks(content : str, chem_shift_to_atom : ChemShiftToAtom) -> NOEAssig
         #Check that each chemical shift correspnds to something
         if 0 in (len(Ip), len(Iq), len(Ir)):
             continue
-    
+
+        # #Not consider noe if there is only one atom in each set and they are the same
+        if len(Iq) == 1 and len(Ir) == 1 and Iq == Ir:
+            continue
 
         triplet_assignment.append((Ip, Iq, Ir, noe))
 
