@@ -1,10 +1,9 @@
-import sys
 import Bio.PDB as PDB
-import Bio
 from os import listdir
 from os.path import isfile, join
 import numpy as np
-import RMSD
+import utils.atom_class as atom_class
+import utils.atom_func as atom_func
 
 RES_SIZE = 5 # changeable
 # ASSUME ALL CYS/SER ARE CYS
@@ -13,23 +12,6 @@ three_to_one = {'CYS': 'C', 'ASP': 'D', 'SER': 'S', 'GLN': 'Q', 'LYS': 'K',
     'GLY': 'G', 'HIS': 'H', 'LEU': 'L', 'ARG': 'R', 'TRP': 'W', 
     'ALA': 'A', 'VAL':'V', 'GLU': 'E', 'TYR': 'Y', 'MET': 'M', 'XAA' : 'C'}
 one_to_three = {value: key for (key, value) in three_to_one.items()}
-
-def get_correct_atom_name(residue, res_id, atoms_to_coord):
-    residue_atoms = [RMSD.Atom(atom.name, atom.coord) for atom in residue]
-    residue_atoms = sorted(residue_atoms)
-    for i in range(len(residue_atoms)):
-        # Change all 2-3 hydrogen atoms to 1-2 hydrogen atoms
-        if i < len(residue_atoms)-2 \
-        and residue_atoms[i+1].name[0] == 'H' and residue_atoms[i+1].name[-1] == '2' \
-        and residue_atoms[i+2].name[0] == 'H' and residue_atoms[i+2].name[-1] == '3' \
-        and residue_atoms[i].name != residue_atoms[i+1].name[:-1] + '1':
-            residue_atoms[i+1].name = residue_atoms[i+1].name[:-1] + '1'
-            residue_atoms[i+2].name = residue_atoms[i+2].name[:-1] + '2'
-        # Change all H atoms to HN atoms
-        if residue_atoms[i].name == 'H':
-            residue_atoms[i].name = 'HN'
-        residue_atoms[i].name = f'{residue_atoms[i].name}_{res_id}'
-    return sorted([atom for atom in residue_atoms if atom.name in atoms_to_coord])
 
 def rotate_molecule_to_vector(atom_positions, N_idx, C_idx, V):
     # Translate the molecule so that N is at the origin
@@ -69,8 +51,7 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     """
     Initialize positions according to amino acid internal positions from pdb files
     """
-    #TOP parse
-    aa_names = RMSD.get_aa_names_from_file("data/aria.top")
+    aa_names = list(set(res_id_to_AA.values()))
     residues = {x: [] for x in aa_names}
     count_aa_found = 0
 
@@ -105,7 +86,7 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         # Already initialized to uniformly random values so we can skip
         if aa not in residues:
             continue
-        residue_atoms = get_correct_atom_name(residues[aa][0], res_id, atoms_to_coord)
+        residue_atoms = atom_func.get_correct_atom_name(residues[aa][0], res_id, atoms_to_coord)
 
         # Find C and N to align the molecule's C-N vector along a random vector
         C_idx = -1
@@ -132,7 +113,7 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
         normalized_atom_coords = rotated_atom_coords - center
 
         for i, atom in enumerate(residue_atoms):
-            atoms_to_coord[f'{atom.name}'] = normalized_atom_coords[i] + cur_pos * RES_SIZE
+            atoms_to_coord[atom.name] = normalized_atom_coords[i] + cur_pos * RES_SIZE
 
     # Final normalization
     mean = np.mean(np.array(list(atoms_to_coord.values())), axis = 0)
@@ -211,11 +192,10 @@ def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
                 if chain.id != 'A':
                     continue
                 local_res_group = []
-                local_cnt = j-i-1
                 for res_id, residue in enumerate(chain):
                     prot_res_id = res_id - pos + i + 1
                     if prot_res_id >= i + 1 and prot_res_id < j:
-                        residue_atoms = get_correct_atom_name(residue, prot_res_id, atoms_to_coord)
+                        residue_atoms = atom_func.get_correct_atom_name(residue, prot_res_id, atoms_to_coord)
                         local_res_group += residue_atoms
 
                 atom_coords = np.array([atom.coord for atom in local_res_group])

@@ -4,39 +4,8 @@ from os import listdir
 from os.path import isfile, join
 import numpy as np
 import argparse
-
-# Store atom name and 3d coordinates
-class Atom:
-    def __init__(self, name = "", coord = np.array(3)):
-        self.name = name
-        self.coord = coord
-    def __lt__(self, other):
-        return self.name < other.name
-    def __repr__(self):
-        return f"Atom({self.name}, {self.coord})"
-
-def get_aa_names_from_file(file):
-    """
-    Get all aa names in a top file
-    """
-    with open(f"{file}", "r") as stream:
-        content = stream.read()
-    aa_names = []
-    res_name = ""
-
-    for line in content.split('\n'):
-        line = line.upper()
-        terms = line.split()
-        if len(terms) == 0:
-            continue
-        opcode = terms[0]
-        if opcode == "RESIDUE": 
-            res_name = terms[1]
-            if res_name == "ACE": 
-                break #rest of file is irrelevant 
-            if res_name not in ['ZN', 'CHEX', 'HISH']:
-                aa_names.append(res_name)
-    return aa_names
+import utils.atom_class as atom_class
+import utils.atom_func as atom_func
     
 def RMSDcalc(X0, Xr):
     """
@@ -63,8 +32,8 @@ def RMSDcalc_res(res0, resr):
     """
     Calculate the RMSD between res0 (true residue) and resr (generated residue)
     """
-    res0_atoms = [Atom(atom.name, atom.coord) for atom in res0]
-    resr_atoms = [Atom(atom.name, atom.coord) for atom in resr]
+    res0_atoms = [atom_class.Atom(atom.name, atom.coord) for atom in res0]
+    resr_atoms = [atom_class.Atom(atom.name, atom.coord) for atom in resr]
 
     res0_atoms = sorted(res0_atoms)
     for i in range(len(res0_atoms)):
@@ -92,7 +61,7 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     #TOP parse
-    aa_names = get_aa_names_from_file("data/aria.top")
+    aa_names = atom_func.get_aa_names_from_file("data/aria.top")
     residues = {x: [] for x in aa_names}
     count_aa_found = 0
 
