@@ -1,13 +1,20 @@
 model model/NOE.mod;
 data model/NOE_generated.dat;
 
-option solver conopt;
+option solver ipopt;
 
-param iterations_count;
+set neighborhoods ordered := {M/20, M/16, M/12, M/8};
+
+param max_iterations;
+param nb_count;
 param cur_min_error;
-param x_old {ATOMS, DIM};
 
-let iterations_count := 10;
+param x_old {ATOMS, DIM};
+param X_UB {ATOMS, DIM} default M;
+param X_LB {ATOMS, DIM} default -M;
+
+let max_iterations := 10;
+let nb_count := 1;
 
 #start with initial solution
 printf "Initial solve...\n";
@@ -18,33 +25,48 @@ solve;
 let cur_min_error := ERROR;
 display x > model_output.txt;
 
+#nb constraint 
+subject to x_UB {a in ATOMS, d in DIM}: x[a, d] <= X_UB[a, d];
+subject to x_LB {a in ATOMS, d in DIM}: x[a, d] >= X_LB[a, d];
 
-for {i in 1..iterations_count}{
-    printf "Iteration %d\n", i;
+for {i in 1..max_iterations}{
+    printf "Neighborhood number : %d\n", nb_count;
 
-    #store old solution
+    #check if nb number exceeded
+    if (nb_count >= card(neighborhoods) + 1) then {
+        break;
+    }
+
+    #store old solution 
     for {a in ATOMS, d in DIM}{
         let x_old[a, d] := x[a, d];
     }
 
-    #salt the old solution to get new one
-    for {a in ATOMS, d in DIM} {
-        let x[a, d] := x_old[a, d] + Uniform(-M/20.0, M/20.0); 
-    }
 
+
+    #set the new neighborhood bounds
+    for {a in ATOMS, d in DIM}{
+        let X_UB[a, d] := x_old[a, d] + member(nb_count, neighborhoods);
+        let X_LB[a, d] := x_old[a, d] - member(nb_count, neighborhoods);
+
+    }
+    
+    #solve anew
     solve;
 
+    #check if new best found
     if (ERROR < cur_min_error) then {
-        #if new best, store results
         let cur_min_error := ERROR;
         display x > model_output.txt;
+        let nb_count := 1;
     }
     else{
-        #else, restore old position
         for {a in ATOMS, d in DIM}{
             let x[a, d] := x_old[a, d];
         }
+        let nb_count := nb_count + 1;
     }
+
 }
 
 printf "Final error : %d \n", cur_min_error;
