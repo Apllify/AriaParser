@@ -52,6 +52,8 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     Initialize positions according to amino acid internal positions from pdb files
     """
     aa_names = list(set(res_id_to_AA.values()))
+    if 'XAA' in aa_names:
+        aa_names.remove('XAA')
     residues = {x: [] for x in aa_names}
     count_aa_found = 0
 
