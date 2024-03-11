@@ -59,19 +59,19 @@ subject to cov_dists {(u,v) in COVDISTS}:
         sum{k in DIM} (x[u,k] - x[v,k])^2 = CovDists[u,v]^2;
 
 #only uncomment if using taylor exp or trig function for angSlack
-subject to ANG_SLACK{(u, v) in ANGDISTS} : 
-        -4 * atan(1)<=angSlack[u,v]<=4 * atan(1);
+# subject to ANG_SLACK{(u, v) in ANGDISTS} : 
+#         -4 * atan(1)<=angSlack[u,v]<=4 * atan(1);
 
 
 ### NORMAL NAIVE LINEAR ANGLE SLACK VERSION
-# subject to ANG_DISTS {(u,v) in ANGDISTS}:
-#         sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + angSlack[u, v];
+subject to ANG_DISTS {(u,v) in ANGDISTS}:
+        sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + angSlack[u, v];
 
 ### TAYLOR EXPANSION VERSION
-subject to ANG_DISTS {(u,v) in ANGDISTS}:
-        sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + 
-                                            d1d2[u, v] * (SinAlpha[u, v] * (angSlack[u, v] - angSlack[u, v]^3/6) + 
-                                                          angSlack[u, v]^2/2 - angSlack[u,v]^4/24); 
+# subject to ANG_DISTS {(u,v) in ANGDISTS}:
+#         sum{k in DIM} (x[u,k] - x[v,k])^2 = AngDists[u,v]^2 + 
+#                                             d1d2[u, v] * (SinAlpha[u, v] * (angSlack[u, v] - angSlack[u, v]^3/6) + 
+#                                                           angSlack[u, v]^2/2 - angSlack[u,v]^4/24); 
 
 ### FULL TRIGONOMETRIC VERSION
 # subject to ANG_DISTS {(u,v) in ANGDISTS}:
