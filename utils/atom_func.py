@@ -1,6 +1,6 @@
 import utils.atom_class as atom_class
 
-def get_correct_atom_name(residue, res_id, atoms_to_coord):
+def get_correct_atom_name(residue, res_id, not_filtered):
     """
     Convert atom names from H2 H3 to H1 H2, and H to HN
     """
@@ -19,7 +19,28 @@ def get_correct_atom_name(residue, res_id, atoms_to_coord):
             residue_atoms[i].name = 'HN'
         # Add res_id to name
         residue_atoms[i].name = f'{residue_atoms[i].name}_{res_id}'
-    return sorted([atom for atom in residue_atoms if atom.name in atoms_to_coord])
+    return sorted([atom for atom in residue_atoms if atom.name in not_filtered])
+
+def get_correct_atom_name_no_filter(residue, res_id):
+    """
+    Convert atom names from H2 H3 to H1 H2, and H to HN
+    """
+    residue_atoms = [atom_class.Atom(atom.name, atom.coord) for atom in residue]
+    residue_atoms = sorted(residue_atoms)
+    for i in range(len(residue_atoms)):
+        # Change all 2-3 hydrogen atoms to 1-2 hydrogen atoms
+        if i < len(residue_atoms)-2 \
+        and residue_atoms[i+1].name[0] == 'H' and residue_atoms[i+1].name[-1] == '2' \
+        and residue_atoms[i+2].name[0] == 'H' and residue_atoms[i+2].name[-1] == '3' \
+        and residue_atoms[i].name != residue_atoms[i+1].name[:-1] + '1':
+            residue_atoms[i+1].name = residue_atoms[i+1].name[:-1] + '1'
+            residue_atoms[i+2].name = residue_atoms[i+2].name[:-1] + '2'
+        # Change all H atoms to HN atoms
+        if residue_atoms[i].name == 'H':
+            residue_atoms[i].name = 'HN'
+        # Add res_id to name
+        residue_atoms[i].name = f'{residue_atoms[i].name}_{res_id}'
+    return sorted([atom for atom in residue_atoms])
 
 def get_aa_names_from_file(file):
     """
