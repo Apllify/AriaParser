@@ -112,4 +112,4 @@ zipped = zip(AAs, atom_ress, atom_names, Xs)
 zipped = sorted(zipped, key=lambda pair: pair[1])
 AAs, atom_ress, atom_names, Xs = map(list, zip(*zipped))
 
-save_coordinates_pdb_format("output.pdb", "PDB_ID", "", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
+save_coordinates_pdb_format("output.pdb", "PDB_ID", "A", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
