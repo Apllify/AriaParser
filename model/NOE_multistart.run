@@ -1,7 +1,7 @@
 model model/NOE.mod;
 data model/NOE_generated.dat;
 
-option solver conopt;
+option solver ipopt;
 
 param iterations_count;
 param cur_min_error;

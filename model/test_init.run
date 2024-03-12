@@ -1,0 +1,4 @@
+model model/NOE.mod;
+data model/NOE_generated.dat;
+let {a in ATOMS, d in DIM} x[a, d] := init_x[a, d]; # explicit initialization
+display x > model_output.txt;
