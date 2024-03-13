@@ -81,8 +81,8 @@ def initialize_x(atom_set, res_id_to_AA, dim=3):
     maxCovDist = 2 # from aria.par
     bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 60
     atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
-    visited = dict()
-    cur_pos = np.array([0,0,0])
+    cur_pos = np.array([0, 0, 0])
+    visited = {(0, 0, 0): 1}
     for res_id in atom_set:
         aa = res_id_to_AA[res_id]
         # Already initialized to uniformly random values so we can skip
@@ -170,8 +170,8 @@ def initialize_x_multiple_aas(atom_set, res_id_to_AA, dim = 3):
     maxCovDist = 2 # from aria.par
     bound = sum([len(residue) for residue in residues_atom_set]) * maxCovDist / 2 / 60
     atoms_to_coord = {atom: np.random.uniform(low=-bound, high=bound, size=dim) for residue in residues_atom_set for atom in residue}
-    visited = dict()
-    cur_pos = np.array([0,0,0])
+    cur_pos = np.array([0, 0, 0])
+    visited = {(0, 0, 0): 1}
 
     i = 0
     while i < len(s_prot):
