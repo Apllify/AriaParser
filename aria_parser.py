@@ -129,7 +129,6 @@ def parse_prot(content : str, res_info_dict : ResInfoDict) -> tuple[ChemShiftToA
 
  
     AA_name = match_AA(seq, res_info_dict)
-    print(AA_name)
     if AA_name == "CYS/SER": 
         res_id_to_AA[res_id] = "XAA"        
     else: 
