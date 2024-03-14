@@ -54,11 +54,30 @@ def save_coordinates_pdb_format(filename, pdb_id, chain_name, res_name, res_seq,
       new_file.write('{:6s}{:5d} {:4s}{:1s}{:3s} {:1s}{:4d}{:1s}\n'.format(atomType, serial, name, altLoc, resName, chainID, resSeq, iCode))
       #new_file.write('TER    {:4.0f} {} {} {}{:4.0f}\n'.format(k+1, '    ', res_name[k], chain_name, res_seq[k]))
 
-def parse_output(content : str) -> tuple[list, list, list]:
+def parse_output(model_output_file = "model_output.txt", par_file = "data/aria.par", top_file = "data/aria.top", prot_file = "data/hmqcnoe.prot"):
    """
    Transforms an AMPL model output into a PDB file
    """
-   lines = content.split("\n")
+   #PAR PARSE
+   with open(par_file, "r") as stream : 
+      par_content = stream.read()
+   cov_lengths, angle_lengths = aria_parser.parse_par(par_content)
+
+   #TOP parse
+   with open(top_file, "r") as stream:
+      top_content = stream.read()
+   res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
+
+   #PROT PARSE
+   with open(prot_file, "r") as stream : 
+      prot_content = stream.read()
+   #get atoms with 999 shift as well, hence the variable full_atom_set
+   _, _, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
+
+   with open(model_output_file, "r") as stream: 
+      model_output = stream.read()
+
+   lines = model_output.split("\n")
    atom_names = []
    atom_ress = []
    Xs = []
@@ -84,32 +103,14 @@ def parse_output(content : str) -> tuple[list, list, list]:
       atom_names.append(atom_name)
       atom_ress.append(atom_res)
 
-   return (atom_names, atom_ress, Xs)
+   AAs = [res_id_to_AA[res] for res in atom_ress]
 
-#PAR PARSE
-with open("data/aria.par", "r") as stream : 
-   par_content = stream.read()
-cov_lengths, angle_lengths = aria_parser.parse_par(par_content)
+   # sort according to residue number
+   zipped = zip(AAs, atom_ress, atom_names, Xs)
+   zipped = sorted(zipped, key=lambda pair: pair[1])
+   AAs, atom_ress, atom_names, Xs = map(list, zip(*zipped))
 
-#TOP parse
-with open("data/aria.top", "r") as stream:
-   top_content = stream.read()
-res_info_dict = aria_parser.parse_top(top_content, cov_lengths, angle_lengths)
+   save_coordinates_pdb_format("output.pdb", "PDB_ID", "A", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
 
-#PROT PARSE
-with open("data/hmqcnoe.prot", "r") as stream : 
-   prot_content = stream.read()
-#get atoms with 999 shift as well, hence the variable full_atom_set
-_, _, res_id_to_AA = aria_parser.parse_prot(prot_content, res_info_dict)
-
-with open("model_output.txt", "r") as stream: 
-   model_output = stream.read()
-atom_names, atom_ress, Xs = parse_output(model_output)
-AAs = [res_id_to_AA[res] for res in atom_ress]
-
-# sort according to residue number
-zipped = zip(AAs, atom_ress, atom_names, Xs)
-zipped = sorted(zipped, key=lambda pair: pair[1])
-AAs, atom_ress, atom_names, Xs = map(list, zip(*zipped))
-
-save_coordinates_pdb_format("output.pdb", "PDB_ID", "A", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
+if __name__ == '__main__':
+   parse_output()

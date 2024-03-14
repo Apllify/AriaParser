@@ -1,4 +1,3 @@
-import sys
 import Bio.PDB as PDB
 from os import listdir
 from os.path import isfile, join
@@ -53,13 +52,11 @@ def RMSDcalc_res(res0, resr):
     Xr = np.array([x.coord for x in resr_atoms])
     return RMSDcalc(X0, Xr)
 
-if __name__ == '__main__':
-    argparser = argparse.ArgumentParser(description="Calculating the RMSD between a generated pdb and residue position from pdb folder.")
-    argparser.add_argument("gen_pdb", type = str, metavar = "Generated pdb")
-    argparser.add_argument("num_res", type = int, metavar= "Number of residues to compare with")
 
-    args = argparser.parse_args()
-
+def RMSDcalc_pdb(gen_pdb, num_res):
+    """
+    Calculating the RMSD between a generated pdb and random residue (that matches aa) from pdb folder
+    """
     #TOP parse
     aa_names = atom_func.get_aa_names_from_file("data/aria.top")
     residues = {x: [] for x in aa_names}
@@ -77,14 +74,14 @@ if __name__ == '__main__':
                     res_name = residue.get_resname()
                     if res_name not in residues:
                         continue
-                    if len(residues[res_name]) < args.num_res:
+                    if len(residues[res_name]) < num_res:
                         count_aa_found += 1
                         residues[res_name].append(residue)
-        if count_aa_found == len(aa_names) * args.num_res:
+        if count_aa_found == len(aa_names) * num_res:
             break
 
     # Parse generated pdb
-    struct = pdbparser.get_structure(args.gen_pdb.split('.')[0], args.gen_pdb)
+    struct = pdbparser.get_structure(gen_pdb.split('.')[0], gen_pdb)
     for model in struct:
         for chain in model:
             for res_id, residue in enumerate(chain):
@@ -99,3 +96,12 @@ if __name__ == '__main__':
                     RMSD_avg += RMSD
                 RMSD_avg /= len(residues[gen_res_name])
                 print(f'For amino acid {gen_res_name} at residue {res_id+1}, average RMSD = {RMSD_avg}')
+    return RMSD_avg
+
+if __name__ == '__main__':
+    argparser = argparse.ArgumentParser(description="Calculating the RMSD between a generated pdb and residue position from pdb folder.")
+    argparser.add_argument("gen_pdb", type = str, metavar = "Generated pdb")
+    argparser.add_argument("num_res", type = int, metavar= "Number of residues to compare with")
+
+    args = argparser.parse_args()
+    print(RMSDcalc_pdb(args.gen_pdb, args.num_res))
