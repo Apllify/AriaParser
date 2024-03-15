@@ -39,7 +39,7 @@ var sp{RHOS} >= 0, default 0; #slack variable
 var d2{FA} >= 1, <= 36, default Uniform(1, 5); 
 
 ## slack variables on equations for angle bond distances
-param AngSCoeff := 0.05; 
+param AngSCoeff := 10^4; 
 var angSlack{ANGDISTS} default 0;
 
 minimize ERROR: 

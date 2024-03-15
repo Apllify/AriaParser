@@ -48,12 +48,26 @@ def RMSDcalc_res(res0, resr):
             res0_atoms[i].name = 'HN'
     res0_atoms = sorted(res0_atoms)
 
+    if res0.get_resname() == 'ARG':
+        res0_atoms = [x for x in res0_atoms if x.name != 'HH12']
+    if res0.get_resname() == 'LYS':
+        res0_atoms = [x for x in res0_atoms if x.name != 'HZ3']
+    if res0.get_resname() == 'HIS':
+        res0_atoms = [x for x in res0_atoms if x.name != 'HE2']
+    if resr.get_resname() == 'GLU':
+        resr_atoms = [x for x in resr_atoms if x.name != 'HE1']
+    if resr.get_resname() == 'ASP':
+        resr_atoms = [x for x in resr_atoms if x.name != 'HD1']
+    # print(len(res0_atoms), len(resr_atoms))
+    if len(res0_atoms) != len(resr_atoms):
+        return "diff length", "diff length", "diff length"
+
     X0 = np.array([x.coord for x in res0_atoms])
     Xr = np.array([x.coord for x in resr_atoms])
     return RMSDcalc(X0, Xr)
 
 
-def RMSDcalc_pdb(gen_pdb, num_res):
+def RMSDcalc_pdb(gen_pdb, num_res=10):
     """
     Calculating the RMSD between a generated pdb and random residue (that matches aa) from pdb folder
     """
@@ -82,21 +96,28 @@ def RMSDcalc_pdb(gen_pdb, num_res):
 
     # Parse generated pdb
     struct = pdbparser.get_structure(gen_pdb.split('.')[0], gen_pdb)
+    sum_RMSD_avg = 0
     for model in struct:
         for chain in model:
             for res_id, residue in enumerate(chain):
                 gen_res_name = residue.get_resname()
                 RMSD_avg = 0
                 if gen_res_name not in residues:
-                    print(f'For amino acid {gen_res_name} at residue {res_id+1}, not found in any pdb file')
+                    # print(f'For amino acid {gen_res_name} at residue {res_id+1}, not found in any pdb file')
                     continue
 
+                cnt = 0
                 for true_residue in residues[gen_res_name]:
+                    # first/last residue have one more atom
+                    # print(len(true_residue), len(residue), true_residue, residue)
                     X0bar, Xrbar, RMSD = RMSDcalc_res(true_residue, residue)
-                    RMSD_avg += RMSD
-                RMSD_avg /= len(residues[gen_res_name])
-                print(f'For amino acid {gen_res_name} at residue {res_id+1}, average RMSD = {RMSD_avg}')
-    return RMSD_avg
+                    if RMSD != "diff length":
+                        RMSD_avg += RMSD
+                        cnt += 1
+                RMSD_avg /= cnt
+                sum_RMSD_avg += RMSD_avg
+                # print(f'For amino acid {gen_res_name} at residue {res_id+1}, average RMSD = {RMSD_avg}')
+    return sum_RMSD_avg
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description="Calculating the RMSD between a generated pdb and residue position from pdb folder.")

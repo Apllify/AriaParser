@@ -20,3 +20,7 @@ def extract_residues_in_range(input_file, output_file, x, y):
                 except ValueError:
                     # If conversion to integer fails, skip the line
                     continue
+
+x = 2
+y = 3
+extract_residues_in_range(f"./data/hmqcnoe.prot", f"./data/hmqcnoe_{x}_{y}.prot", x, y)

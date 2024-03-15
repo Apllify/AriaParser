@@ -110,7 +110,7 @@ def parse_output(model_output_file = "model_output.txt", par_file = "data/aria.p
    zipped = sorted(zipped, key=lambda pair: pair[1])
    AAs, atom_ress, atom_names, Xs = map(list, zip(*zipped))
 
-   save_coordinates_pdb_format("output.pdb", "PDB_ID", "A", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
+   save_coordinates_pdb_format(model_output_file.split('.')[0] + '.pdb', "PDB_ID", "A", AAs, atom_ress, atom_names, np.array(Xs), "METHOD")
 
 if __name__ == '__main__':
    parse_output()

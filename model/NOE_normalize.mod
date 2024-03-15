@@ -42,7 +42,7 @@ var d2{FA} >= 1, <= 36, default Uniform(1, 5);
 # set PAIRS_NOT_RHO_NOT_COV := (ALLPAIRS diff FA) diff COVDISTS;
 
 ## slack variables on equations for angle bond distances
-param AngSCoeff := 10^4;
+param AngSCoeff := 50;
 # param NRNCCoeff := 0.1;
 var angSlack{ANGDISTS} default 0;
 

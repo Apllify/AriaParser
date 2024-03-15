@@ -1,8 +1,17 @@
-model model/NOE.mod;
+model model/NOE_normalize.mod;
 data model/NOE_generated.dat;
 let {a in ATOMS, d in DIM} x[a, d] := init_x[a, d]; # explicit initialization
-option solver baron;
+# for {a in ATOMS, d in DIM} {        let x[a, d] := Uniform(-M, M);     }
+# option solver baron;
+# option solver conopt;
+# option solver snopt;
+option solver ipopt;
+# option ipopt_options 'max_iter=1000';  # Replace 100 with your desired maximum number of iterations
+# option solver knitro;
+
+# display FA;
 solve;
+display sm, sp, rho, angSlack, AngDists;
 display x > model_output.txt;
 #display d2, sm, sp;
 display ERROR;
