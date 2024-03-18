@@ -1,0 +1,16 @@
+reset;
+model /Users/anjamatic/AriaParser/model/NOE.mod;
+data /Users/anjamatic/AriaParser/model/aa_ms_inpt.dat;
+
+param init_x{ATOMS, DIM} default 0;
+data /Users/anjamatic/AriaParser/model/init_x.dat;
+let {a in ATOMS, d in DIM} x[a, d] := init_x[a, d];
+
+option solver baron;
+option baron_options "outlev=1 epsr=1e-6 prfreq=1e3 maxtime=180 maxiter=1";
+solve;
+display x > model_output.txt;
+display ERROR; 
+
+
+

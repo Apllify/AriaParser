@@ -1,0 +1,3 @@
+# snopt.run
+option solver snopt;
+option snopt_options "outlev=2 major_feas=1e-3 major_opt=1e-3 minor_feas=1e-3 timing_level=3 time_limit=120";

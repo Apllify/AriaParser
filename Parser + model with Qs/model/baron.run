@@ -1,0 +1,3 @@
+# baron.run 
+option solver baron;
+option baron_options "outlev=1 epsr=1e-6 prfreq=1e3 maxtime=180 maxiter=1";

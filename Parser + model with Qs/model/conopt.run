@@ -1,0 +1,3 @@
+# conopt.run
+option solver conopt;
+option conopt_options "maxftime=120";

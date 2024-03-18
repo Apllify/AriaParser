@@ -1,0 +1,67 @@
+reset;
+
+model /Users/anjamatic/AriaParser/model/NOE.mod;
+data /Users/anjamatic/AriaParser/model/aa_ms_inpt.dat;
+
+param MaxItn integer, default 50;
+param estar default  Infinity;
+param xstar{ATOMS, DIM} default 0;
+param d2star{FA} default 0;
+param sdiststar{ALLDISTS} default 0;
+param smstar{RHOS} default 0;
+param spstar{RHOS} default 0;
+
+param fail;
+let fail := 0;
+
+
+#define set of solvers to use
+set solvers := {"/Users/anjamatic/AriaParser/model/conopt.run", "/Users/anjamatic/AriaParser/model/ipopt.run",
+"/Users/anjamatic/AriaParser/model/minos.run", "/Users/anjamatic/AriaParser/model/snopt.run"} ;
+
+for {s in solvers}{
+    #setting the solver
+    commands (s);
+    for{itn in 1..MaxItn}{
+        if fail = 3 then break;
+        option randseed 0 > nul;
+        let {a in ATOMS, k in DIM} x[a, k] := Uniform(-M, M);
+        let {(u, v) in FA} d2[u, v] := Normal(9, 1);
+        let {(u, v) in ALLDISTS} sdist[u, v] := 0;
+
+        solve > nul;
+
+        #check if solver is failing
+        if match(solve_message,'[Oo]ptimal') == 0 then { 
+            print "solver failing";
+            let fail := fail +1;
+            continue;
+        } 
+ 
+        if ERROR < estar then {
+            printf "improved error = %f at itn = %d\n ", ERROR, itn; 
+            let estar := ERROR;
+            let {a in ATOMS, k in DIM} xstar[a, k] := x[a, k];
+            let {(u, v) in FA} d2star[u, v] := d2[u, v];
+            let {(u, v) in ALLDISTS} sdiststar[u,v] := sdist[u,v];
+            let {k in RHOS} smstar[k] := sm[k];
+            let {k in RHOS} spstar[k] := sp[k];
+
+        }
+
+        
+    }
+    let fail := 0;
+}
+
+#for python implementation
+let {a in ATOMS, k in DIM} x[a, k] := xstar[a, k];
+let {(u, v) in FA} d2[u, v] := d2star[u, v];
+let {(u, v) in ALLDISTS} sdist[u,v] := sdiststar[u,v];
+let {k in RHOS} sm[k] := smstar[k];
+let {k in RHOS} sp[k] := spstar[k];
+
+display xstar > model_output.txt;
+display estar;
+
+

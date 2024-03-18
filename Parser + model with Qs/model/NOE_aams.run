@@ -1,0 +1,52 @@
+reset;
+model /Users/anjamatic/AriaParser/model/NOE.mod;
+data /Users/anjamatic/AriaParser/model/aa_ms_inpt.dat;
+
+param init_x{ATOMS, DIM} default 0;
+param estar default Infinity;
+param xstar{ATOMS, DIM} default 0;
+param d2star{FA} default 0;
+param sdiststar{ALLDISTS} default 0;
+param smstar{RHOS} default 0;
+param spstar{RHOS} default 0;
+
+
+data /Users/anjamatic/AriaParser/model/init_x.dat;
+
+
+let {a in ATOMS, d in DIM} x[a, d] := init_x[a, d]; # explicit initialization
+
+set solvers := {"/Users/anjamatic/AriaParser/model/conopt.run", "/Users/anjamatic/AriaParser/model/ipopt.run",
+"/Users/anjamatic/AriaParser/model/minos.run", "/Users/anjamatic/AriaParser/model/snopt.run"} ;
+
+for {s in solvers}{
+    #setting the solver
+    commands (s);
+    solve;
+     #check if solver is failing
+    if match(solve_message,'[Oo]ptimal') == 0 then { 
+        print "solver failing";
+        continue;
+        } 
+    if ERROR < estar then {
+            printf "improved error = %f ", ERROR; 
+            let estar := ERROR;
+            let {a in ATOMS, k in DIM} xstar[a, k] := x[a, k];
+            let {(u, v) in FA} d2star[u, v] := d2[u, v];
+            let {(u, v) in ALLDISTS} sdiststar[u,v] := sdist[u,v];
+            let {k in RHOS} smstar[k] := sm[k];
+            let {k in RHOS} spstar[k] := sp[k];
+        }
+}
+
+let {a in ATOMS, k in DIM} x[a, k] := xstar[a, k];
+let {(u, v) in FA} d2[u, v] := d2star[u, v];
+let {(u, v) in ALLDISTS} sdist[u,v] := sdiststar[u,v];
+let {k in RHOS} sm[k] := smstar[k];
+let {k in RHOS} sp[k] := spstar[k];
+
+
+display xstar > model_output.txt;
+display estar;
+
+

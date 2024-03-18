@@ -1,0 +1,5 @@
+baron (global + local), 
+snopt (local), 
+conopt (local), 
+ipopt (local),
+copt (local)

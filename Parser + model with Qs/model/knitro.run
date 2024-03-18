@@ -1,0 +1,3 @@
+# knitro.run
+option solver knitro;
+option knitro_options "maxtime_cpu=120 feastolabs=1e-3";

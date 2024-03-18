@@ -1,0 +1,3 @@
+# ipopt.run
+option solver "ipopt";
+option ipopt_options "max_iter=100 tol=1e-3 max_cpu_time=120";

@@ -1,0 +1,127 @@
+reset;
+
+model /Users/anjamatic/AriaParser/model/NOE.mod;
+data /Users/anjamatic/AriaParser/model/aa_ms_inpt.dat;
+
+#define limits of model
+param N := 50; #number of jumps
+param n;
+let n := 0; #current number of jumps
+param L := 16; #number of expansions
+param l;
+let l := 0; #current number of expansions
+param tolx0 := M/16;
+param tolx;
+let tolx := M/32;
+param told20 := 1;
+param told2;
+let told2 := 0.1;
+param eps := 0.0001;
+
+#flags
+param fail;
+let fail := 0;
+
+#best parameters
+param estar default  Infinity;
+param xstar{ATOMS, DIM} default 0;
+param d2star{FA} default 0;
+param sdiststar{ALLDISTS} default 0;
+param smstar{RHOS} default 0;
+param spstar{RHOS} default 0;
+
+param x0{a in ATOMS, k in DIM};
+
+option randseed 0 > nul;
+param d20{(u, v) in FA};
+
+
+
+
+#define the set of solvers
+set solvers := {"/Users/anjamatic/AriaParser/model/conopt.run", "/Users/anjamatic/AriaParser/model/ipopt.run",
+"/Users/anjamatic/AriaParser/model/minos.run", "/Users/anjamatic/AriaParser/model/snopt.run"} ;
+
+for {s in solvers}{
+    #setting the solver
+    commands (s);
+    #first starting point
+ 
+    let{a in ATOMS, k in DIM} x0[a, k]  := Uniform(-M, M);  
+    let {(u, v) in FA} d20[u, v] :=  Normal(9, 1);
+
+    let {a in ATOMS, k in DIM} x[a, k] := x0[a, k];
+    let {(u, v) in FA} d2[u, v] := d20[u, v];
+    let {(u, v) in ALLDISTS} sdist[u, v] := 0;
+repeat {
+    if fail = 3 then break;
+   
+    printf "n: %f l: %f \n", n, l;  
+    solve > nul;
+
+    
+    if match(solve_message,'[Oo]ptimal') == 0 then { 
+        print "solver failing";
+        let fail := fail +1;
+        let{a in ATOMS, k in DIM} x0[a, k]  := Uniform(-M, M);  
+        let {(u, v) in FA} d20[u, v] :=  Normal(9, 1);
+
+        let {a in ATOMS, k in DIM} x[a, k] := x0[a, k];
+        let {(u, v) in FA} d2[u, v] := d20[u, v];
+        let n := n+1;
+        
+        continue;
+    }
+   
+    option randseed 0 > nul;
+
+    if ERROR + eps < estar then {
+        printf "solution improved\n";
+        let estar := ERROR;
+        let {a in ATOMS, k in DIM} xstar[a, k] := x[a, k];
+        let {(u, v) in FA} d2star[u, v] := d2[u, v];
+        let {(u, v) in ALLDISTS} sdiststar[u,v] := sdist[u,v];
+        let {k in RHOS} smstar[k] := sm[k];
+        let {k in RHOS} spstar[k] := sp[k];
+
+        let tolx :=  tolx0;
+        let told2 := told20;
+        let {a in ATOMS, k in DIM} x0[a, k] := Uniform(x[a, k] - tolx, x[a, k] + tolx);
+        let {(u, v) in FA} d20[u, v] := Normal(d2[u, v], told2);
+        let n := n + 1;
+        let l := 0;
+
+    }
+
+    else{
+        let tolx := tolx +  tolx0;
+       let told2 := told2 + told20;
+       let {a in ATOMS, k in DIM} x0[a, k] := Uniform(x0[a, k] - tolx, x0[a, k] + tolx);
+       let {(u, v) in FA} d20[u, v] := Normal(d20[u, v], told2);
+       let l := l+1;
+
+    }
+
+
+    let {a in ATOMS, k in DIM} x[a, k] := x0[a, k];
+    let {(u, v) in FA} d2[u, v] := d20[u, v];
+    let {(u, v) in ALLDISTS} sdist[u, v] := 0;
+} until n = N || l = L;
+let n := 0;
+let l :=0;
+let fail := 0;
+let tolx := tolx0;
+let told2 := told20;
+}
+
+#For pyhton implementation
+let {a in ATOMS, k in DIM} x[a, k] := xstar[a, k];
+let {(u, v) in FA} d2[u, v] := d2star[u, v];
+let {(u, v) in ALLDISTS} sdist[u,v] := sdiststar[u,v];
+let {k in RHOS} sm[k] := smstar[k];
+let {k in RHOS} sp[k] := spstar[k];
+
+display estar;
+display xstar > model_output.txt;
+
+
